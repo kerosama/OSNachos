@@ -52,9 +52,9 @@ int Table::Put(void *f) {
     // lock so 2 files don't get the same space.
     int i;	// to find the next slot
 
-    lock->Acquire();
+    lock->Acquire("");
     i = map.Find();
-    lock->Release();
+    lock->Release("");
     if ( i != -1)
 	table[i] = f;
     return i;
@@ -67,13 +67,13 @@ void *Table::Remove(int i) {
     void *f =0;
 
     if ( i >= 0 && i < size ) {
-	lock->Acquire();
+	lock->Acquire("");
 	if ( map.Test(i) ) {
 	    map.Clear(i);
 	    f = table[i];
 	    table[i] = 0;
 	}
-	lock->Release();
+	lock->Release("");
     }
     return f;
 }
