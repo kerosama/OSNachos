@@ -29,6 +29,15 @@
 #define SC_Close	8
 #define SC_Fork		9
 #define SC_Yield	10
+#define SC_CreateLock 11
+#define SC_DestroyLock 12
+#define SC_Acquire 13
+#define SC_Release 14
+#define SC_CreateCondition 15
+#define SC_DestroyCondition 16
+#define SC_Signal 17
+#define SC_Wait 18
+#define SC_Broadcast 19
 
 #define MAXFILENAME 256
 
@@ -125,6 +134,49 @@ void Fork(void (*func)());
  * or not. 
  */
 void Yield();		
+
+/* Create a lock for use within a user program. Returns the id of the lock and takes
+ * in what to name the lock as a parameter.
+ */
+int CreateLock();
+
+/* Destroy a lock. The id parameter is to find the proper lock to delete.
+ */
+void DestroyLock(int id);
+
+/* Acquire a lock. The id parameter finds the proper lock and acquires it. 
+ * waits if not available.
+ */
+void Acquire(int id);
+
+/* Relase a lock. The id parameter finds the proper lock and releases it.
+ * If a thread is on the wait queue, it is put to ready.
+ */
+void Release(int id);
+
+/* Create a Condition for use within a user program. Returns the id of the conditional and takes
+ * in what to name the conditional as a parameter.
+ */
+int CreateCondition();
+
+/* Destroy a Conditional. The id parameter is to find the proper conditional to delete.
+*/
+void DestroyCondition(int id);
+
+/* Signal a thread to wake up. The id parameter finds the proper conditional to use.
+ * Signal wakes up the necessary thread on the wait queue.
+ */
+void Signal(int id);
+
+/* Waits on a lock within the conditional. The id parameter finds the proper conditional.
+ * The thread puts itself on the necessary wait queue.
+ */
+void Wait(int id);
+
+/* Broadcasts on a lock. The id parameter finds the proper conditional.
+ * All threads on the wait queue are signaled
+ */
+void Broadcast(int id);
 
 #endif /* IN_ASM */
 

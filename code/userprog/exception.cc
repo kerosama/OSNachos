@@ -235,13 +235,52 @@ void Close_Syscall(int fd) {
     }
 }
 
-void Exit_Syscall() {
+void Exit_Syscall(int status) {
+	// If there are other threads, finish the thread, otherwise call halt
+	// and stop the user program.
 	if (num_thr > 1) {
 		num_thr--;
 		currentThread->Finish();
 	}
 	else
 		interrupt->Halt();
+}
+
+int CreateLock_Syscall() {
+
+	return -1;
+}
+
+void DestroyLock_Syscall(int id) {
+
+}
+
+void Acquire_Syscall(int id) {
+
+}
+
+void Release_Syscall(int id) {
+
+}
+
+int CreateCondition_Syscall() {
+	return -1;
+}
+
+void DestroyCondition_Syscall(int id) {
+
+}
+
+void Signal_Syscall(int id) {
+
+}
+
+void Wait_Syscall(int id) {
+
+}
+
+void Broadcast_Syscall(int id) {
+
 }
 
 void ExceptionHandler(ExceptionType which) {
@@ -286,7 +325,23 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_Exit:
 		DEBUG('a', "Exit syscall.\n");
-		Exit_Syscall();
+		Exit_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_CreateLock:
+		DEBUG('a', "CreateLock syscall.\n");
+		CreateLock_Syscall();
+		break;
+		case SC_DestroyLock:
+		DEBUG('a', "DestroyLock syscall.\n");
+		DestroyLock_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_CreateCondition:
+		DEBUG('a', "CreateCondition syscall.\n");
+		CreateCondition_Syscall();
+		break;
+		case SC_DestroyCondition:
+		DEBUG('a', "DestroyCondition syscall.\n");
+		DestroyCondition_Syscall(machine->ReadRegister(4));
 		break;
 	}
 
