@@ -29,6 +29,9 @@
 
 using namespace std;
 
+//Private Variables
+int num_thr = 0; //Number of current threads (for use in exit)
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -98,6 +101,7 @@ void Create_Syscall(unsigned int vaddr, int len) {
     buf[len]='\0';
 
     fileSystem->Create(buf,0);
+	num_thr++;
     delete[] buf;
     return;
 }
@@ -231,6 +235,15 @@ void Close_Syscall(int fd) {
     }
 }
 
+void Exit_Syscall() {
+	if (num_thr > 1) {
+		num_thr--;
+		currentThread->Finish();
+	}
+	else
+		interrupt->Halt();
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -266,6 +279,14 @@ void ExceptionHandler(ExceptionType which) {
 	    case SC_Close:
 		DEBUG('a', "Close syscall.\n");
 		Close_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Yield:
+		DEBUG('a', "Yield syscall.\n");
+		currentThread->Yield();
+		break;
+		case SC_Exit:
+		DEBUG('a', "Exit syscall.\n");
+		Exit_Syscall();
 		break;
 	}
 
