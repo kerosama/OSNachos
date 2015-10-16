@@ -24,6 +24,7 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "synch.h"
 #include <stdio.h>
 #include <iostream>
 
@@ -31,6 +32,13 @@ using namespace std;
 
 //Private Variables
 int num_thr = 0; //Number of current threads (for use in exit)
+Lock **lock_arr = new Lock*[100];
+//bool should_delete_lock[100]; //Think this needs to be implemented to delete lock if currently being used
+int current_lock_num = 0;
+
+Condition **cond_arr = new Condition*[100];
+//bool should_delete_cond[100]; //Think this needs to be implemented to delete lock if currently being used
+int current_cond_num = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -247,40 +255,87 @@ void Exit_Syscall(int status) {
 }
 
 int CreateLock_Syscall() {
-
-	return -1;
+	Lock *tempLock = new Lock("temp");
+	lock_arr[current_lock_num++] = tempLock;
+	//should_destroy_lock[current_lock_num++] = false;
+	return current_lock_num - 1;
+	//return -1;
 }
 
 void DestroyLock_Syscall(int id) {
-
+	if (id > current_lock_num) {
+		printf("Error: Destroy Lock Syscall - id does not exist.\n");
+		return;
+	}
+	delete lock_arr[id];
 }
 
 void Acquire_Syscall(int id) {
-
+	if (id > current_lock_num) {
+		printf("Error: Acquire Lock Syscall - id does not exist.\n");
+		return;
+	}
+	lock_arr[id]->Acquire();
 }
 
 void Release_Syscall(int id) {
-
+	if (id > current_lock_num) {
+		printf("Error: Release Lock Syscall - id does not exist.\n");
+		return;
+	}
+	lock_arr[id]->Release();
 }
 
 int CreateCondition_Syscall() {
-	return -1;
+	Condition *tempCond = new Condition("temp");
+	cond_arr[current_cond_num++] = tempCond;
+	//should_destroy_lock[current_lock_num++] = false;
+	return current_cond_num - 1;
+	//return -1;
 }
 
 void DestroyCondition_Syscall(int id) {
-
+	if (id > current_cond_num) {
+		printf("Error: Destroy Condition Syscall - id does not exist.\n");
+		return;
+	}
+	delete cond_arr[id];
 }
 
-void Signal_Syscall(int id) {
-
+void Signal_Syscall(int id, int lock_id) {
+	if (id > current_cond_num) {
+		printf("Error: Signal Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num) {
+		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Signal(lock_arr[lock_id]);
 }
 
-void Wait_Syscall(int id) {
-
+void Wait_Syscall(int id, int lock_id) {
+	if (id > current_cond_num) {
+		printf("Error: Wait Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num) {
+		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Wait(lock_arr[lock_id]);
 }
 
-void Broadcast_Syscall(int id) {
-
+void Broadcast_Syscall(int id, int lock_id) {
+	if (id > current_cond_num) {
+		printf("Error: Broadcast Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num) {
+		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Broadcast(lock_arr[lock_id]);
 }
 
 void ExceptionHandler(ExceptionType which) {
@@ -335,6 +390,14 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "DestroyLock syscall.\n");
 		DestroyLock_Syscall(machine->ReadRegister(4));
 		break;
+		case SC_Acquire:
+		DEBUG('a', "Acquire syscall.\n");
+		Acquire_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Release:
+		DEBUG('a', "Release syscall.\n");
+		Release_Syscall(machine->ReadRegister(4));
+		break;
 		case SC_CreateCondition:
 		DEBUG('a', "CreateCondition syscall.\n");
 		CreateCondition_Syscall();
@@ -342,6 +405,21 @@ void ExceptionHandler(ExceptionType which) {
 		case SC_DestroyCondition:
 		DEBUG('a', "DestroyCondition syscall.\n");
 		DestroyCondition_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Signal:
+		DEBUG('a', "Signal syscall.\n");
+		Signal_Syscall(machine->ReadRegister(4), 
+				machine->ReadRegister(5));
+		break;
+		case SC_Wait:
+		DEBUG('a', "Wait syscall.\n");
+		Wait_Syscall(machine->ReadRegister(4), 
+				machine->ReadRegister(5));
+		break;
+		case SC_Broadcast:
+		DEBUG('a', "Broadcast syscall.\n");
+		Broadcast_Syscall(machine->ReadRegister(4),
+				machine->ReadRegister(5));
 		break;
 	}
 
