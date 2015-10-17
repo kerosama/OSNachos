@@ -275,7 +275,7 @@ void Acquire_Syscall(int id) {
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
 		return;
 	}
-	lock_arr[id]->Acquire();
+	lock_arr[id]->Acquire("");
 }
 
 void Release_Syscall(int id) {
@@ -283,7 +283,7 @@ void Release_Syscall(int id) {
 		printf("Error: Release Lock Syscall - id does not exist.\n");
 		return;
 	}
-	lock_arr[id]->Release();
+	lock_arr[id]->Release("");
 }
 
 int CreateCondition_Syscall() {
@@ -311,7 +311,7 @@ void Signal_Syscall(int id, int lock_id) {
 		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	cond_arr[id]->Signal(lock_arr[lock_id]);
+	cond_arr[id]->Signal("", lock_arr[lock_id]);
 }
 
 void Wait_Syscall(int id, int lock_id) {
@@ -323,7 +323,7 @@ void Wait_Syscall(int id, int lock_id) {
 		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	cond_arr[id]->Wait(lock_arr[lock_id]);
+	cond_arr[id]->Wait("", lock_arr[lock_id]);
 }
 
 void Broadcast_Syscall(int id, int lock_id) {
