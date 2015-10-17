@@ -33,11 +33,13 @@ using namespace std;
 //Private Variables
 int num_thr = 0; //Number of current threads (for use in exit)
 Lock **lock_arr = new Lock*[100];
-//bool should_delete_lock[100]; //Think this needs to be implemented to delete lock if currently being used
+bool lock_in_use[100];
+bool should_delete_lock[100]; //Think this needs to be implemented to delete lock if currently being used
 int current_lock_num = 0;
 
 Condition **cond_arr = new Condition*[100];
-//bool should_delete_cond[100]; //Think this needs to be implemented to delete lock if currently being used
+bool cond_in_use[100];
+bool should_delete_cond[100]; //Think this needs to be implemented to delete lock if currently being used
 int current_cond_num = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
@@ -257,7 +259,8 @@ void Exit_Syscall(int status) {
 int CreateLock_Syscall() {
 	Lock *tempLock = new Lock("temp");
 	lock_arr[current_lock_num++] = tempLock;
-	//should_destroy_lock[current_lock_num++] = false;
+	lock_in_use[current_lock_num] = false;
+	should_delete_lock[current_lock_num++] = false;
 	return current_lock_num - 1;
 	//return -1;
 }
@@ -267,7 +270,10 @@ void DestroyLock_Syscall(int id) {
 		printf("Error: Destroy Lock Syscall - id does not exist.\n");
 		return;
 	}
-	delete lock_arr[id];
+	if (lock_in_use[id])
+		should_delete_lock[id] = true;
+	else
+		delete lock_arr[id];
 }
 
 void Acquire_Syscall(int id) {
@@ -275,7 +281,12 @@ void Acquire_Syscall(int id) {
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
 		return;
 	}
-	lock_arr[id]->Acquire("");
+	if (should_delete_lock[id])
+		delete lock_arr[id];
+	else {
+		lock_arr[id]->Acquire("");
+		lock_in_use[id] = true;
+	}
 }
 
 void Release_Syscall(int id) {
@@ -283,13 +294,17 @@ void Release_Syscall(int id) {
 		printf("Error: Release Lock Syscall - id does not exist.\n");
 		return;
 	}
+	lock_in_use[id] = false;
 	lock_arr[id]->Release("");
+	if (should_delete_lock[id])
+		delete lock_arr[id];
 }
 
 int CreateCondition_Syscall() {
 	Condition *tempCond = new Condition("temp");
-	cond_arr[current_cond_num++] = tempCond;
-	//should_destroy_lock[current_lock_num++] = false;
+	cond_arr[current_cond_num] = tempCond;
+	cond_in_use[current_lock_num] = false;
+	should_delete_lock[current_lock_num++] = false;
 	return current_cond_num - 1;
 	//return -1;
 }
@@ -299,7 +314,10 @@ void DestroyCondition_Syscall(int id) {
 		printf("Error: Destroy Condition Syscall - id does not exist.\n");
 		return;
 	}
-	delete cond_arr[id];
+	if (cond_in_use[id])
+		should_delete_cond[id] = true;
+	else
+		delete cond_arr[id];
 }
 
 void Signal_Syscall(int id, int lock_id) {
@@ -311,7 +329,10 @@ void Signal_Syscall(int id, int lock_id) {
 		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	cond_arr[id]->Signal("", lock_arr[lock_id]);
+	if (should_delete_cond[id])
+		delete cond_arr[id];
+	else
+		cond_arr[id]->Signal("", lock_arr[lock_id]);
 }
 
 void Wait_Syscall(int id, int lock_id) {
@@ -323,7 +344,10 @@ void Wait_Syscall(int id, int lock_id) {
 		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	cond_arr[id]->Wait("", lock_arr[lock_id]);
+	if (should_delete_cond[id])
+		delete cond_arr[id];
+	else
+		cond_arr[id]->Wait("", lock_arr[lock_id]);
 }
 
 void Broadcast_Syscall(int id, int lock_id) {
@@ -335,7 +359,10 @@ void Broadcast_Syscall(int id, int lock_id) {
 		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	cond_arr[id]->Broadcast(lock_arr[lock_id]);
+	if (should_delete_cond[id])
+		delete cond_arr[id];
+	else
+		cond_arr[id]->Broadcast(lock_arr[lock_id]);
 }
 
 void ExceptionHandler(ExceptionType which) {
