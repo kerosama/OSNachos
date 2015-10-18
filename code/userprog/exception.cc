@@ -37,12 +37,13 @@ int num_processes;
 class Process
 {
 	public:
-		Process()
+		Process(Thread* thread)
 		{
 			id = num_processes + 1;
 			num_processes++;
 			
 			pageTable = new Table(8*PageSize);
+			threads[0] = thread;
 		}			
 
 		~Process(){}
@@ -87,7 +88,7 @@ class Process
 //Private Variables
 
 int num_processes_max = 50;
-Process* processTable = new Process[num_processes_max];
+Process** processTable = new Process*[num_processes_max];
 int num_thr = 0; //Number of current threads (for use in exit)
 Lock **lock_arr = new Lock*[100];
 bool lock_in_use[100];
@@ -334,8 +335,13 @@ SpaceId Exec_Syscall(char *name) {
 
 	AddrSpace *space = new AddrSpace(executable);
 
+	
 	Thread* t = new Thread("exec thread");
 	t->space = space;
+
+	num_processes++;
+	processTable[num_processes] = new Process(t);
+
 
 	/*Update Process table*/
 	SpaceId sID = 0; /*set to process table id*/
