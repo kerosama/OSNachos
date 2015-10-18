@@ -294,6 +294,45 @@ void Exit_Syscall(int status) {
 		interrupt->Halt();
 }
 
+void exec_func(int arg) {
+	printf("running thread - exec.");
+
+	currentThread->space->InitRegisters();		// set the initial register values
+	currentThread->space->RestoreState();		// load page table register
+	machine->Run();			// jump to the user progam
+}
+
+SpaceId Exec_Syscall(char *name) {
+	/* Exec - Takes in name of process and returns the id of the space for the process.
+	*  The process table is updated with the space and a new exec thread is forked.
+	*  Function is based on progtest.cc's StartProcess(char *) function.
+	*/
+	OpenFile *executable = fileSystem->Open(name);
+	if (executable == NULL) {
+		printf("Unable to open file %s\n", name);
+		return -1;
+	}
+
+	AddrSpace *space = new AddrSpace(executable);
+
+	Thread* t = new Thread("exec thread");
+	t->space = space;
+
+	/*Update Process table*/
+	SpaceId sID = 0; /*set to process table id*/
+	
+	t->Fork(exec_func, 0);
+
+	delete executable;
+	return sID;
+}
+
+void Fork_Syscall(void (*func)())
+{
+	Thread* kernelThread = new Thread("kernel thread");
+	kernelThread->Fork((VoidFunctionPtr)func, 0);
+}
+
 int CreateLock_Syscall() {
 	Lock *tempLock = new Lock("temp");
 	lock_arr[current_lock_num++] = tempLock;
@@ -350,9 +389,9 @@ void DestroyCondition_Syscall(int id) {
 		printf("Error: Destroy Condition Syscall - id does not exist.\n");
 		return;
 	}
-	if (cond_in_use[id])
-		should_delete_cond[id] = true;
-	else
+	//if (cond_in_use[id])
+		//should_delete_cond[id] = true;
+	//else
 		delete cond_arr[id];
 }
 
@@ -365,9 +404,9 @@ void Signal_Syscall(int id, int lock_id) {
 		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	if (should_delete_cond[id])
-		delete cond_arr[id];
-	else
+	//if (should_delete_cond[id])
+		//delete cond_arr[id];
+	//else
 		cond_arr[id]->Signal("", lock_arr[lock_id]);
 }
 
@@ -380,9 +419,9 @@ void Wait_Syscall(int id, int lock_id) {
 		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	if (should_delete_cond[id])
-		delete cond_arr[id];
-	else
+	//if (should_delete_cond[id])
+		//delete cond_arr[id];
+	//else
 		cond_arr[id]->Wait("", lock_arr[lock_id]);
 }
 
@@ -395,17 +434,10 @@ void Broadcast_Syscall(int id, int lock_id) {
 		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
 		return;
 	}
-	if (should_delete_cond[id])
-		delete cond_arr[id];
-	else
+	//if (should_delete_cond[id])
+		//delete cond_arr[id];
+	//else
 		cond_arr[id]->Broadcast(lock_arr[lock_id]);
-}
-
-void Fork_Syscall(void (*func)())
-{
-	Thread* kernelThread = new Thread("kernel thread");
-
-
 }
 
 void ExceptionHandler(ExceptionType which) {
@@ -451,6 +483,14 @@ void ExceptionHandler(ExceptionType which) {
 		case SC_Exit:
 		DEBUG('a', "Exit syscall.\n");
 		Exit_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Exec:
+		DEBUG('a', "Exec syscall.\n");
+		Exec_Syscall((char*)machine->ReadRegister(4));
+		break;
+		case SC_Fork:
+		DEBUG('a', "Fork syscall.\n");
+		Fork_Syscall((void(*)())machine->ReadRegister(4));
 		break;
 		case SC_CreateLock:
 		DEBUG('a', "CreateLock syscall.\n");
