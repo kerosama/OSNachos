@@ -34,8 +34,6 @@ using namespace std;
 
 //Private Variables
 int num_processes;
-int num_processes_max = 50;
-Process processTable[num_processes_max] = Process;
 class Process
 {
 	public:
@@ -69,6 +67,8 @@ class Process
 
 //Private Variables
 
+int num_processes_max = 50;
+Process* processTable = new Process[num_processes_max];
 int num_thr = 0; //Number of current threads (for use in exit)
 Lock **lock_arr = new Lock*[100];
 bool lock_in_use[100];
