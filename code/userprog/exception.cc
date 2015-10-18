@@ -40,7 +40,9 @@ class Process
 		Process()
 		{
 			id = num_processes + 1;
-			num_processes++;			
+			num_processes++;
+			
+			pageTable = new Table(8*PageSize);
 		}			
 
 		~Process(){}
@@ -60,9 +62,26 @@ class Process
 			return addrSpace;
 		}
 
+		void addThread(Thread* thread)
+		{
+			threads[num_threads] = thread;
+			num_threads++;
+			Table* biggerPT = new Table(8*num_threads*PageSize);
+			for(int i = 0; i < num_threads - 1; i++)
+			{
+				biggerPT->Put(pageTable->Get(i));
+				pageTable->Remove(i);
+			}	
+			delete pageTable;
+			pageTable = biggerPT;
+		}
+
 	private:
 		int id;
-		AddrSpace* addrSpace;
+		AddrSpace* addrSpace;		
+		int num_threads;
+		Thread* threads[50];
+		Table* pageTable;
 };
 
 //Private Variables
@@ -330,7 +349,8 @@ SpaceId Exec_Syscall(char *name) {
 void Fork_Syscall(void (*func)())
 {
 	Thread* kernelThread = new Thread("kernel thread");
-	kernelThread->Fork((VoidFunctionPtr)func, 0);
+	kernelThread->space = currentThread->space;
+	
 }
 
 int CreateLock_Syscall() {
@@ -530,10 +550,6 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "Broadcast syscall.\n");
 		Broadcast_Syscall(machine->ReadRegister(4),
 				machine->ReadRegister(5));
-		break;
-		case SC_Fork:
-		DEBUG('a', "Fork syscall.\n");
-		Fork_Syscall((void(*)())machine->ReadRegister(4));
 		break;
 	}
 
