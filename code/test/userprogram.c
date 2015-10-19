@@ -51,6 +51,9 @@ struct PictureMonitor;
 struct PassportMonitor;
 struct CashierMonitor;
 
+struct clientSSNs;
+struct bribeClientSSNs;
+
 std::vector<ApplicationClerk *> aClerks;
 std::vector<PictureClerk *> pClerks;
 std::vector<PassportClerk *> ppClerks;
@@ -58,6 +61,7 @@ std::vector<Cashier *> cClerks;
 std::vector<Client *> customers; //DO NOT POP CUSTOMERS FROM THIS VECTOR. 
 //OTHERWISE WE WILL HAVE TO REINDEX THE CUSTOMERS AND THAT IS A BIG PAIN  
 
+//MONITOR LOCKS
 int applicationMonitorLock;
 int pictureMonitorNumLock;
 int passportMonitorNumLock;
@@ -66,6 +70,7 @@ int clientMonitorNumLock;
 int managerMonitorNumLock;
 int senatorMonitorNumLock;
 
+//LINE LOCKS
 int applicationLineNumLock[5];
 int pictureLineNumLockm[5];
 int passportLineNumLock[5];
@@ -74,51 +79,89 @@ int clientLineNumLock[50];
 int managerLineNumLock[1];
 int senatorLineNumLock[10];
 
+//CV BRIBE LINE LOCKS
+int applicationCVBribeLineNumLock[5];
+int pictureCVBribeLineNumLockm[5];
+int passportCVBribeLineNumLock[5];
+int cashierCVBribeLineNumLock[5];
+int clientCVBribeLineNumLock[50];
+int managerCVBribeLineNumLock[1];
+int senatorCVBribeLineNumLock[10];
+
+//CV LINE LOCKS
+int applicationCVLineNumLock[5];
+int pictureCVLineNumLockm[5];
+int passportCVLineNumLock[5];
+int cashierCVLineNumLock[5];
+int clientCVLineNumLock[50];
+int managerCVLineNumLock[1];
+int senatorCVLineNumLock[10];
+
+int clerkLineNotEmpty;
+
+//HOLD CLIENT SSNs INFO
+struct clientSSNs{
+  int line;
+  int ssn;
+}
+
+//HOLD BRIBE CLIENT SSNs INFO
+struct bribeClientSSNs{
+  int line;
+  int ssn;
+}
+
 struct ApplicationMonitor {
 
-  Lock* AMonitorLock;
-  //Condition* LineNotEmpty;
+  //Lock* AMonitorLock;
+  Condition* LineNotEmpty;
 
   int numAClerks;
-  Lock** clerkLineLocks;          // move to be global variable
-  Condition** clerkLineCV;
-  Condition** clerkBribeLineCV;
+  //Lock** clerkLineLocks;          // move to be global variable
+  //Condition** clerkLineCV;
+  //Condition** clerkBribeLineCV;
 
   int* clerkLineCount;
   int* clerkBribeLineCount;
   int* clerkState;  //0: available     1: busy    2: on break
 
-  std::queue<int>* clientSSNs;
-  std::queue<int>* bribeClientSSNs;
+  //std::queue<int>* clientSSNs;
+  //std::queue<int>* bribeClientSSNs;
+
+  struct clientSSNs clientSSNs_arr[50];
+  struct bribeClientSSNs bribeClientSSNs_arr[50];
+
+  int clientCount = 0;
 
   ApplicationMonitor(int numApplicationClerks, int numCustomers)
   {
-    int i = 0;
-    AMonitorLock = new Lock("Application Monitor Lock");
+    //AMonitorLock = new Lock("Application Monitor Lock");
     //LineNoteEmpty = new Condition("Monitor Condition");
     applicationMonitorLock = CreateLock();
+    clerkLineNotEmpty = CreateCondition();
 
     //numAClerks = numApplicationClerks;
     //clerkLineLocks = new Lock*[numAClerks];
 
-    ///////////////////////////////////////
-
-    clerkLineCV = new Condition*[numAClerks];
-    clerkBribeLineCV = new Condition*[numAClerks];
+    //clerkLineCV = new Condition*[numAClerks];
+    //clerkBribeLineCV = new Condition*[numAClerks];
     
     clerkLineCount = new int[numAClerks];
     clerkBribeLineCount = new int[numAClerks];
     clerkState = new int[numAClerks];
 
-    clientSSNs = new std::queue<int>[numCustomers];
-    bribeClientSSNs = new std::queue<int>[numCustomers];
+    //clientSSNs = new std::queue<int>[numCustomers];
+    //bribeClientSSNs = new std::queue<int>[numCustomers];
 
     for(int i = 0; i < numAClerks; i++)
     {     
       applicationLineNumLock[i] = CreateLock(); //Acquire and send in the lock number;
-      clerkLineCV[i] = new Condition("");
-      clerkBribeLineCV[i] = new Condition("");
-      clerkLineLocks[i] = new Lock("clerkLineLocks");
+      applicationCVLineNumLock[i] = CreateCondition();
+      applicationCVBribeLineNumLock[i] = CreateCondition();
+
+      //clerkLineCV[i] = new Condition("");
+      //clerkBribeLineCV[i] = new Condition("");
+      //clerkLineLocks[i] = new Lock("clerkLineLocks");
       clerkLineCount[i] = 0;
       clerkBribeLineCount[i] = 0;
       clerkState[i] = 0;
@@ -147,52 +190,64 @@ struct ApplicationMonitor {
 
   void giveSSN(int line, int ssn)
   {
-    clientSSNs[line].push(ssn);
+    struct clientSSNs client_obj;
+    client_obj.line = line;
+    client_object.ssn = ssn;
+
+    clientSSNs_arr[clientCount] = client_obj;
+    //clientSSNs[line].push(ssn);
+    clientCount+=1; 
   }
 };
 
 struct PictureMonitor {
 
-  Lock* PMonitorLock; //***************************************
-  pictureMonitorNumLock = CreateLock();
+  //Lock* PMonitorLock; 
 
   int numPClerks;
-  Lock** clerkLineLocks;          // move to be global variable //***************************************
-  pictureMonitorNumLock = CreateLock();
+  //Lock** clerkLineLocks;          // move to be global variable 
 
-  Condition** clerkLineCV;
-  Condition** clerkBribeLineCV;
+  //Condition** clerkLineCV;
+  //Condition** clerkBribeLineCV;
 
   int* clerkLineCount;
   int* clerkBribeLineCount;
   int* clerkState;  //0: available     1: busy    2: on break
-  std::queue<int>* clientSSNs;
-  std::queue<int>* bribeClientSSNs;
+  //std::queue<int>* clientSSNs;
+  //std::queue<int>* bribeClientSSNs;
   bool* picturesTaken;
+
+  struct clientSSNs clientSSNs_arr[50];
+  struct bribeClientSSNs bribeClientSSNs_arr[50];
 
   PictureMonitor(int numPictureClerks, int numCustomers)
   {
-    PMonitorLock = new Lock("Monitor Lock"); //***************************************
+    //PMonitorLock = new Lock("Monitor Lock");
+    pictureMonitorLock = CreateLock();
 
     numPClerks = numPictureClerks;
-    clerkLineLocks = new Lock*[numPClerks]; //***************************************
-    clerkLineCV = new Condition*[numPClerks];
-    clerkBribeLineCV = new Condition*[numPClerks];
+    //clerkLineLocks = new Lock*[numPClerks];
+    //clerkLineCV = new Condition*[numPClerks];
+    //clerkBribeLineCV = new Condition*[numPClerks];
     
     clerkLineCount = new int[numPClerks];
     clerkBribeLineCount = new int[numPClerks];
     clerkState = new int[numPClerks];
 
-    clientSSNs = new std::queue<int>[numCustomers];
-    bribeClientSSNs = new std::queue<int>[numCustomers];
+    //clientSSNs = new std::queue<int>[numCustomers];
+    //bribeClientSSNs = new std::queue<int>[numCustomers];
 
     picturesTaken = new bool[numCustomers];
 
     for(int i = 0; i < numPClerks; i++)
     {     
-      clerkLineCV[i] = new Condition("");
-      clerkBribeLineCV[i] = new Condition("");
-      clerkLineLocks[i] = new Lock("clerkLineLocks");
+      pictureLineNumLock[i] = CreateLock(); //Acquire and send in the lock number;
+      pictureCVLineNumLock[i] = CreateCondition();
+      pictureCVBribeLineNumLock[i] = CreateCondition();
+
+      //clerkLineCV[i] = new Condition("");
+      //clerkBribeLineCV[i] = new Condition("");
+      //clerkLineLocks[i] = new Lock("clerkLineLocks");
       clerkLineCount[i] = 0;
       clerkBribeLineCount[i] = 0;
       clerkState[i] = 0;
@@ -220,52 +275,65 @@ struct PictureMonitor {
 
   void giveSSN(int line, int ssn)
   {
-    clientSSNs[line].push(ssn);
+    struct clientSSNs client_obj;
+    client_obj.line = line;
+    client_object.ssn = ssn;
+    clientSSNs_arr[clientCount] = client_obj;
+    //clientSSNs[line].push(ssn);
+    clientCount+=1; 
   }
 
 };
 
 struct PassportMonitor {
 
-  Lock* MonitorLock; //***************************************
+  //Lock* MonitorLock; 
 
   int numClerks;
-  Lock** clerkLineLocks;          // move to be global variable //***************************************
+  //Lock** clerkLineLocks;          // move to be global variable 
 
-  Condition** clerkLineCV;
-  Condition** clerkBribeLineCV;
+  //Condition** clerkLineCV;
+  //Condition** clerkBribeLineCV;
 
   int* clerkLineCount;
   int* clerkBribeLineCount;
   int* clerkState;  //0: available     1: busy    2: on break
-  std::queue<int>* clientSSNs;
-  std::queue<int>* bribeClientSSNs;
+  //std::queue<int>* clientSSNs;
+  //std::queue<int>* bribeClientSSNs;
   std::queue<bool>* clientReqs; //0: neither picture nor application, 1: 1 of the two, 2: both
   std::queue<bool>* bribeClientReqs;
 
   PassportMonitor(int numPassportClerks, int numCustomers)
   {
-    MonitorLock = new Lock("Monitor Lock"); //***************************************
+    //MonitorLock = new Lock("Monitor Lock"); 
+    passportMonitorLock = CreateLock();
 
     numClerks = numPassportClerks;
-    clerkLineLocks = new Lock*[numClerks]; //***************************************
-    clerkLineCV = new Condition*[numClerks];
-    clerkBribeLineCV = new Condition*[numClerks];
+    //clerkLineLocks = new Lock*[numClerks]; 
+    //clerkLineCV = new Condition*[numClerks];
+    //clerkBribeLineCV = new Condition*[numClerks];
     
     clerkLineCount = new int[numClerks];
     clerkBribeLineCount = new int[numClerks];
     clerkState = new int[numClerks];
 
-    clientSSNs = new std::queue<int>[numCustomers];   
-    bribeClientSSNs = new std::queue<int>[numCustomers];
-    clientReqs = new std::queue<bool>[numCustomers];
-    bribeClientReqs = new std::queue<bool>[numCustomers];
+    //clientSSNs = new std::queue<int>[numCustomers];   
+    //bribeClientSSNs = new std::queue<int>[numCustomers];
+    struct clientSSNs clientSSNs_arr[50];
+    struct bribeClientSSNs bribeClientSSNs_arr[50];
+
+    clientReqs = new std::queue<bool>[numCustomers]; //NEEDS TO BE TAKEN CARE OF
+    bribeClientReqs = new std::queue<bool>[numCustomers]; //NEEDS TO BE TAKEN CARE OF
 
     for(int i = 0; i < numClerks; i++)
     {     
-      clerkLineCV[i] = new Condition("");
-      clerkBribeLineCV[i] = new Condition("");
-      clerkLineLocks[i] = new Lock("clerkLineLocks");
+      passportLineNumLock[i] = CreateLock(); //Acquire and send in the lock number;
+      passportCVLineNumLock[i] = CreateCondition();
+      passportCVBribeLineNumLock[i] = CreateCondition();
+
+      //clerkLineCV[i] = new Condition("");
+      //clerkBribeLineCV[i] = new Condition("");
+      //clerkLineLocks[i] = new Lock("clerkLineLocks");
       clerkLineCount[i] = 0;
       clerkBribeLineCount[i] = 0;
       clerkState[i] = 0;
@@ -293,10 +361,16 @@ struct PassportMonitor {
 
   void giveSSN(int line, int ssn)
   {
-    clientSSNs[line].push(ssn);
+    struct clientSSNs client_obj;
+    client_obj.line = line;
+    client_object.ssn = ssn;
+
+    clientSSNs_arr[clientCount] = client_obj;
+    //clientSSNs[line].push(ssn);
+    clientCount+=1; 
   }
 
-  void giveReqs(int line, bool completed)
+  void giveReqs(int line, bool completed) //NEEDS TO BE TAKEN CARE OF
   {
     clientReqs[line].push(completed);
   }
@@ -305,44 +379,52 @@ struct PassportMonitor {
 
 struct CashierMonitor 
 {
-  Lock* MonitorLock; //***************************************
+  //Lock* MonitorLock; 
 
   int numClerks;
-  Lock** clerkLineLocks;          // move to be global variable //***************************************
-  Condition** clerkLineCV;
-  Condition** clerkBribeLineCV;
+  //Lock** clerkLineLocks;          // move to be global variable 
+  //Condition** clerkLineCV;
+  //Condition** clerkBribeLineCV;
 
   int* clerkLineCount;
   int* clerkBribeLineCount;
   int* clerkState;  //0: available     1: busy    2: on break
-  std::queue<int>* clientSSNs;
-  std::queue<int>* bribeClientSSNs;
+  //std::queue<int>* clientSSNs;
+  //std::queue<int>* bribeClientSSNs;
   std::queue<bool>* customerCertifications; 
   std::queue<bool>* bribeCustomerCertifications; 
 
   CashierMonitor(int numPassportClerks, int numCustomers)
   {
-    MonitorLock = new Lock("Monitor Lock"); //***************************************
+    //MonitorLock = new Lock("Monitor Lock"); 
+    cashierMonitorLock = CreateLock();
 
     numClerks = numPassportClerks;
-    clerkLineLocks = new Lock*[numClerks]; //***************************************
-    clerkLineCV = new Condition*[numClerks];
-    clerkBribeLineCV = new Condition*[numClerks];
+    //clerkLineLocks = new Lock*[numClerks]; 
+    //clerkLineCV = new Condition*[numClerks];
+    //clerkBribeLineCV = new Condition*[numClerks];
     
     clerkLineCount = new int[numClerks];
     clerkBribeLineCount = new int[numClerks];
     clerkState = new int[numClerks];
 
-    clientSSNs = new std::queue<int>[numCustomers];
-    customerCertifications = new std::queue<bool>[numCustomers];
-    bribeClientSSNs = new std::queue<int>[numCustomers];
-    bribeCustomerCertifications = new std::queue<bool>[numCustomers];
+    //clientSSNs = new std::queue<int>[numCustomers];
+    //customerCertifications = new std::queue<bool>[numCustomers];
+    struct clientSSNs clientSSNs_arr[50];
+    struct bribeClientSSNs bribeClientSSNs_arr[50];
+
+    bribeClientSSNs = new std::queue<int>[numCustomers]; //NEEDS TO BE TAKEN CARE OF
+    bribeCustomerCertifications = new std::queue<bool>[numCustomers]; //NEEDS TO BE TAKEN CARE OF
 
     for(int i = 0; i < numClerks; i++)
     {     
-      clerkLineCV[i] = new Condition("");
-      clerkBribeLineCV[i] = new Condition("");
-      clerkLineLocks[i] = new Lock("clerkLineLocks"); //***************************************
+      cashierLineNumLock[i] = CreateLock();
+      cashierCVLineNumLock[i] = CreateCondition();
+      cashierCVBribeLineNumLock[i] = CreateCondition();
+
+      //clerkLineCV[i] = new Condition("");
+      //clerkBribeLineCV[i] = new Condition("");
+      //clerkLineLocks[i] = new Lock("clerkLineLocks"); 
       clerkLineCount[i] = 0;
       clerkBribeLineCount[i] = 0;
       clerkState[i] = 0;
@@ -371,10 +453,16 @@ struct CashierMonitor
 
   void giveSSN(int line, int ssn)
   {
-    clientSSNs[line].push(ssn);
+    struct clientSSNs client_obj;
+    client_obj.line = line;
+    client_object.ssn = ssn;
+
+    clientSSNs_arr[clientCount] = client_obj;
+    //clientSSNs[line].push(ssn);
+    clientCount+=1; 
   }
 
-  void giveCertification(int line, bool certified)
+  void giveCertification(int line, bool certified) //NEEDS TO BE TAKEN CARE OF
   {
     customerCertifications[line].push(certified);
   }
@@ -803,9 +891,6 @@ void TestSuite() {
 
 }
 #endif
-
-
-
 
 
 class Client {
