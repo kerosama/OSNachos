@@ -539,7 +539,9 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_Exec:
 		DEBUG('a', "Exec syscall.\n");
-		Exec_Syscall((char*)machine->ReadRegister(4));
+		char* data;
+		copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
+		Exec_Syscall(data);
 		break;
 		case SC_Fork:
 		DEBUG('a', "Fork syscall.\n");

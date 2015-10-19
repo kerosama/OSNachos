@@ -282,12 +282,12 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
     bcopy((char *) &mailHdr, buffer, sizeof(MailHeader));
     bcopy(data, buffer + sizeof(MailHeader), mailHdr.length);
 
-    sendLock->Acquire();   		// only one message can be sent
+    sendLock->Acquire("");   		// only one message can be sent
 					// to the network at any one time
     bool success = network->Send(pktHdr, buffer);
     messageSent->P();			// wait for interrupt to tell us
 					// ok to send the next message
-    sendLock->Release();
+    sendLock->Release("");
 
     delete [] buffer;			// we've sent the message, so
 					// we can delete our buffer
