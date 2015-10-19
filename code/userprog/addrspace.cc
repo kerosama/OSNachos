@@ -260,9 +260,10 @@ TranslationEntry* AddrSpace::getPageTable()
 //----------------------------------------------------------------------
 void AddrSpace::AddPages()
 {
+	printf("A ONE\n");
 	//Add 8 pages to page table
 	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
-	for(int i = 0; i < numPages; i++)
+	for(unsigned int i = 0; i < numPages; i++)
 	{
 		tempTable[i].virtualPage = pageTable[i].virtualPage;	
 		tempTable[i].physicalPage = pageTable[i].physicalPage;
@@ -273,10 +274,10 @@ void AddrSpace::AddPages()
 	}
 
 	delete pageTable;
-
+	printf("A TWO\n");
 	pageTable = tempTable;
 
-	for(int i = numPages; i < numPages + 8; i++)
+	for(unsigned int i = numPages; i < numPages + 8; i++)
 	{
 		pageTable[i].virtualPage = i;
 		pageTable[i].physicalPage = i;
@@ -285,5 +286,5 @@ void AddrSpace::AddPages()
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE; 
 	}
-
+	printf("A THREE\n");
 }

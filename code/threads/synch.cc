@@ -116,7 +116,7 @@ void Lock::Acquire(char* debugName)
 {
 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
-	
+	printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
 
 	if(isHeldByCurrentThread())
 	{	
@@ -125,7 +125,8 @@ void Lock::Acquire(char* debugName)
 		return;
 
 	}
-	else if(acquired)
+	
+	if(acquired)
 	{			
 		std::cout << debugName << " waiting to acquire lock " << name << std::endl;
 		queue->Append((void*)currentThread);
@@ -134,9 +135,10 @@ void Lock::Acquire(char* debugName)
 	}
 	else
 	{
-			
+		printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
 		std::cout <<  debugName <<  " acquired lock " << name << std::endl;
 		owner = currentThread;
+
 		acquired = true;
 		
 	}
@@ -148,8 +150,9 @@ void Lock::Acquire(char* debugName)
 
 void Lock::Release(char* debugName) 
 {
+	Thread *thread;
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
-	
+
 	if(isHeldByCurrentThread())
 	{
 		acquired = false;
@@ -159,14 +162,21 @@ void Lock::Release(char* debugName)
 	else
 	{
 		std::cout <<  debugName <<  ": Lock " << name << " is not held by current thread!" << std::endl;
+		(void)interrupt->SetLevel(oldLevel);
+		return;
 	}
 
 	if(!queue->IsEmpty())
 	{
-		Thread* thread = (Thread *)queue->Remove();
+		thread = (Thread *)queue->Remove();
+		owner = thread;
 		scheduler->ReadyToRun(thread);
-	}	
-	
+	}
+	else
+	{
+		acquired = false;
+		owner = NULL;
+	}
 	(void) interrupt->SetLevel(oldLevel);
 }
 
