@@ -28,8 +28,8 @@ int main() {
     Write( buf, bytesread, ConsoleOutput );
 	Close(fd);*/
 
-    /*test1();*/
-    test2();
+    test1();
+    /*test2();*/
 	/*test3();*/
 }
 
@@ -66,9 +66,10 @@ void test2_t2(){
 }
 
 void test2(){
-  Write("Test2.\n", 7, ConsoleOutput);
+  Write("Test2222.\n", 12, ConsoleOutput);
   lockID = CreateLock();
-  Exec("../test/testfiles");
+  Write("Test22.\n", 8, ConsoleOutput);
+  Exec("matmult");
   Fork(test2_t1);
   Acquire(lockID);
   Release(lockID);
