@@ -64,6 +64,9 @@ class Process
 
 		void addThread(Thread* thread)
 		{
+			/*if (addrSpace == NULL)*/
+				printf("ERROR HERE\n");
+			printf("ERROR2\n");
 			addrSpace->AddPages();
 			threads[num_threads] = thread;
 			num_threads++;
@@ -76,21 +79,29 @@ class Process
 			delete pageTable;
 			pageTable = biggerPT;*/
 		}
-
+	
+		AddrSpace* addrSpace;
 	private:
 		int id;
-		AddrSpace* addrSpace;		
+		
 		int num_threads;
 		Thread* threads[50];
 		//Table* pageTable;
 };
 
 //Private Variables
-
+AddrSpace *tempAddrSpace;
 int num_processes_max = 50;
-Process** processTable = new Process*[num_processes_max];
+SpaceId current_process_num = 0;
+Process *processTable[50];
 int num_thr = 0; //Number of current threads (for use in exit)
-Lock **lock_arr = new Lock*[100];
+
+struct Lock_Struct {
+	Lock* lock;
+};
+
+Lock *lock_arr[100];
+/*Lock_Struct lock_arr[100];*/
 bool lock_in_use[100];
 bool should_delete_lock[100]; //Think this needs to be implemented to delete lock if currently being used
 int current_lock_num = 0;
@@ -327,44 +338,59 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
+	
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
 		printf("Unable to open file %s\n", name);
 		return -1;
 	}
+	printf("TEST\n");
+	/*AddrSpace *space = new AddrSpace(executable);*/
+	tempAddrSpace = new AddrSpace(executable);
 
-	AddrSpace *space = new AddrSpace(executable);
-
-	
 	Thread* t = new Thread("exec thread");
-	t->space = space;
+	t->space = tempAddrSpace;
 
 	num_processes++;
-	processTable[num_processes] = new Process(t);
-	processTable[num_processes]->Start(space);
+	processTable[current_process_num] = new Process(t);
+	processTable[current_process_num++]->addrSpace = tempAddrSpace;;
+	//processTable[current_process_num++]->Start(tempAddrSpace);
 
-	/*Update Process table*/
-	SpaceId sID = 0; /*set to process table id*/
+	//Process *new_Proc = new Process(t);
+	//processTable[current_process_num++] = new_Proc;
+	//SpaceId sID = 0; /*set to process table id*/
 	
 	t->Fork(exec_func, 0);
 
 	delete executable;
-	return sID;
+	return current_process_num - 1;
 }
 
-void Fork_Syscall(void (*func)())
+void kernel_thread(int va) {
+
+}
+
+void Fork_Syscall(VoidFunctionPtr func)
 {
 	Thread* kernelThread = new Thread("kernel thread");
+	processTable[current_process_num]->addThread(kernelThread);
 	kernelThread->space = currentThread->space;
-	
+	kernelThread->Fork((VoidFunctionPtr)func, 0);
 }
 
 int CreateLock_Syscall() {
-	Lock *tempLock = new Lock("temp");
-	lock_arr[current_lock_num++] = tempLock;
+	//Lock *tempLock = new Lock("temp");
+	char name[5];
+	sprintf(name, "%d", current_lock_num);
+	strcat(name, "lock");
+	/*struct Lock_Struct temp;*/
+	Lock *temp = new Lock(name);
+	lock_arr[current_lock_num] = temp;
 	lock_in_use[current_lock_num] = false;
-	should_delete_lock[current_lock_num++] = false;
-	return current_lock_num - 1;
+	should_delete_lock[current_lock_num] = false;
+	current_lock_num++;
+	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
+	return (current_lock_num - 1);
 	//return -1;
 }
 
@@ -384,12 +410,12 @@ void Acquire_Syscall(int id) {
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
 		return;
 	}
-	if (should_delete_lock[id])
+	/*if (should_delete_lock[id])
 		delete lock_arr[id];
-	else {
-		lock_arr[id]->Acquire("");
-		lock_in_use[id] = true;
-	}
+	else {*/
+	lock_arr[id]->Acquire("except");
+	lock_in_use[id] = true;
+	/*}*/
 }
 
 void Release_Syscall(int id) {
@@ -398,7 +424,8 @@ void Release_Syscall(int id) {
 		return;
 	}
 	lock_in_use[id] = false;
-	lock_arr[id]->Release("");
+	lock_arr[id]->Release("except");
+	printf("2\n");
 	if (should_delete_lock[id])
 		delete lock_arr[id];
 }
@@ -516,7 +543,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_Fork:
 		DEBUG('a', "Fork syscall.\n");
-		Fork_Syscall((void(*)())machine->ReadRegister(4));
+		Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
 		break;
 		case SC_CreateLock:
 		DEBUG('a', "CreateLock syscall.\n");

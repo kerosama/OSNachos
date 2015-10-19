@@ -4,17 +4,17 @@
 
 #include "syscall.h"
 
- int lock;
- int condition;
+ int lockID;
+ int conditionID;
 
  void test1();
  void test2();
  void test3();
 
 int main() {
-  OpenFileId fd;
+  /*OpenFileId fd;
   int bytesread;
-  char buf[20];
+  char buf[20];*/
 
     /*Create("testfile", 8);
     fd = Open("testfile", 8);
@@ -26,69 +26,78 @@ int main() {
     fd = Open("testfile", 8);
     bytesread = Read( buf, 100, fd );
     Write( buf, bytesread, ConsoleOutput );
-    Close(fd);*/
+	Close(fd);*/
 
-    test1();
+    /*test1();*/
     test2();
-    test3();
+	/*test3();*/
 }
 
 void test1(){
   int id = CreateLock();
   int id2 = CreateCondition();
-  int id3;
+  int id3 = CreateLock();
+  Write("Test1.\n", 8, ConsoleOutput);
   DestroyLock(id);
   DestroyCondition(id2);
-  id3 = CreateLock();
-  Write("\nOnly 1 acquire should be called.\n", 36, ConsoleOutput);
+  /*id3 = CreateLock();*/
+  /*Write("Only 1 acquire should be called.\n", 36, ConsoleOutput);*/
   Acquire(id3);
-  Acquire(id3);
+ /* Write("THERE.\n", 7, ConsoleOutput);*/
+  /*Acquire(id3);*/
   Release(id3);
+  DestroyLock(id3);
+ /* Write("HERE.\n", 6, ConsoleOutput);*/
   /*not reached*/
   /*Write("\nThis is not reached.", 21, ConsoleOutput);*/
 }
 
-void test2(){
-  lockID = CreateLock();
-  Fork(test2_t1);
-  Acquire(lock);
-  Release(lock);
-}
-
 void test2_t1(){
-  Acquire(lock);
-  DestroyLock(lock);
-  Exit(0);
+	Acquire(lockID);
+	DestroyLock(lockID);
+	Exit(0);
 }
 
 void test2_t2(){
+	/*lockID = CreateLock();*/
+	Yield();
+	Release(lockID);
+	Exit(0);
+}
+
+void test2(){
+  Write("Test2.\n", 7, ConsoleOutput);
   lockID = CreateLock();
-  Yield();
-  Release(lock);
-  Exit(0);
+  Exec("../test/testfiles");
+  Fork(test2_t1);
+  Acquire(lockID);
+  Release(lockID);
+}
+
+void test3_t1(){
+	lockID = CreateLock();
+	Wait(conditionID, lockID);
+	Signal(conditionID, lockID);
+	Broadcast(conditionID, lockID);
+	DestroyCondition(conditionID);
+	Exit(0);
+}
+
+void test3_t2(){
+	conditionID = CreateCondition();
+	Signal(conditionID, lockID);
+	Broadcast(conditionID, lockID);
+	Exit(0);
 }
 
 void test3(){
+  Write("Test3.\n", 8, ConsoleOutput);
   conditionID = CreateCondition();
   lockID = CreateLock();
   Fork(test3_t1);
   Fork(test3_t2);
-  Wait(condition, lock);
-  Broadcast(condition, lock);
+  Wait(conditionID, lockID);
+  Broadcast(conditionID, lockID);
 }
 
-void test3_t1(){
-  lockID = CreateLock();
-  Wait(condition, lock);
-  Signal(condition, lock);
-  Broadcast(condition, lock);
-  DestroyCondition(condition);
-  Exit(0);
-}
 
-void test3_t2(){
-  condition = CreateCondition();
-  Signal(condition, lock);
-  Broadcast(condition, lock);
-  Exit(0);
-}
