@@ -166,17 +166,17 @@ void DestroyCondition(int id);
 /* Signal a thread to wake up. The id parameter finds the proper conditional to use.
  * Signal wakes up the necessary thread on the wait queue.
  */
-void Signal(int id);
+void Signal(int id, int lock_id);
 
 /* Waits on a lock within the conditional. The id parameter finds the proper conditional.
  * The thread puts itself on the necessary wait queue.
  */
-void Wait(int id);
+void Wait(int id, int lock_id);
 
 /* Broadcasts on a lock. The id parameter finds the proper conditional.
  * All threads on the wait queue are signaled
  */
-void Broadcast(int id);
+void Broadcast(int id, int lock_id);
 
 #endif /* IN_ASM */
 
