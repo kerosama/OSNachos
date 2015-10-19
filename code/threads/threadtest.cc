@@ -2016,20 +2016,20 @@ void Problem2(){
 		t->Fork((VoidFunctionPtr)createPictureClerk, i+1);
 	}//end of creating picture clerk threads
 
-	// std::cout << "reached.  cashier_thread_num: " << cashier_thread_num << std::endl; 
- //    for(int i = 0; i < cashier_thread_num; i++){
- //        Thread *t = new Thread("cashier thread");
- //        t->Fork((VoidFunctionPtr)createCashier, i+1);
- //    }//end of creating cashier threads
+	 std::cout << "reached.  cashier_thread_num: " << cashier_thread_num << std::endl; 
+     for(int i = 0; i < cashier_thread_num; i++){
+         Thread *t = new Thread("cashier thread");
+         t->Fork((VoidFunctionPtr)createCashier, i+1);
+     }//end of creating cashier threads
 
- //    std::cout <<"reached. manager_thread_num: " << manager_thread_num << std::endl;
- //    for (int i=0; i<manager_thread_num; i++){
- //        Thread *t = new Thread("manager thread");
- //        t->Fork((VoidFunctionPtr)makeManager, i+1);
- //    }  //end of creating solo manager thread
+     std::cout <<"reached. manager_thread_num: " << manager_thread_num << std::endl;
+     for (int i=0; i<manager_thread_num; i++){
+         Thread *t = new Thread("manager thread");
+         t->Fork((VoidFunctionPtr)makeManager, i+1);
+     }  //end of creating solo manager thread
 
- //    std::cout <<"reached. senator_thread_num: " << senator_thread_num << std::endl;
- //    for (int i=0; i<senator_thread_num; i++){
+     std::cout <<"reached. senator_thread_num: " << senator_thread_num << std::endl;
+     for (int i=0; i<senator_thread_num; i++){
  //        Thread *t = new Thread("senator thread");
  //        t->Fork((VoidFunctionPtr)makeSenator, i+1);
  //    }  //end of creating senator threads
