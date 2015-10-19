@@ -245,3 +245,45 @@ void AddrSpace::RestoreState()
     machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
 }
+
+TranslationEntry* AddrSpace::getPageTable()
+{
+	return pageTable;
+}
+
+//----------------------------------------------------------------------
+// AddrSpace::AddPages
+// 	When adding a thread to a process
+//	Need to add 8 pages to pageTable
+//
+//      
+//----------------------------------------------------------------------
+void AddrSpace::AddPages()
+{
+	//Add 8 pages to page table
+	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
+	for(int i = 0; i < numPages; i++)
+	{
+		tempTable[i].virtualPage = pageTable[i].virtualPage;	
+		tempTable[i].physicalPage = pageTable[i].physicalPage;
+		tempTable[i].valid = pageTable[i].valid;
+		tempTable[i].use = pageTable[i].use;
+		tempTable[i].dirty = pageTable[i].dirty;
+		tempTable[i].readOnly = pageTable[i].readOnly;
+	}
+
+	delete pageTable;
+
+	pageTable = tempTable;
+
+	for(int i = numPages; i < numPages + 8; i++)
+	{
+		pageTable[i].virtualPage = i;
+		pageTable[i].physicalPage = i;
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE; 
+	}
+
+}

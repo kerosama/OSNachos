@@ -42,7 +42,6 @@ class Process
 			id = num_processes + 1;
 			num_processes++;
 			
-			pageTable = new Table(8*PageSize);
 			threads[0] = thread;
 		}			
 
@@ -65,16 +64,17 @@ class Process
 
 		void addThread(Thread* thread)
 		{
+			addrSpace->AddPages();
 			threads[num_threads] = thread;
 			num_threads++;
-			Table* biggerPT = new Table(8*num_threads*PageSize);
+			/*Table* biggerPT = new Table(8*num_threads*PageSize);
 			for(int i = 0; i < num_threads - 1; i++)
 			{
 				biggerPT->Put(pageTable->Get(i));
 				pageTable->Remove(i);
 			}	
 			delete pageTable;
-			pageTable = biggerPT;
+			pageTable = biggerPT;*/
 		}
 
 	private:
@@ -82,7 +82,7 @@ class Process
 		AddrSpace* addrSpace;		
 		int num_threads;
 		Thread* threads[50];
-		Table* pageTable;
+		//Table* pageTable;
 };
 
 //Private Variables
@@ -341,7 +341,7 @@ SpaceId Exec_Syscall(char *name) {
 
 	num_processes++;
 	processTable[num_processes] = new Process(t);
-
+	processTable[num_processes]->Start(space);
 
 	/*Update Process table*/
 	SpaceId sID = 0; /*set to process table id*/
