@@ -210,6 +210,14 @@ Rand:
 	j	$31
 	.end Rand
 
+	.globl IntPrint
+	.ent	IntPrint
+IntPrint:
+	addiu $2,$0,SC_IntPrint
+	syscall
+	j	$31
+	.end IntPrint
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

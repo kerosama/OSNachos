@@ -515,6 +515,11 @@ int Rand_Syscall(int mod) {
 	return rnd;
 }
 
+void IntPrint_Syscall(int i)
+{
+	printf("%d", i);
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -619,6 +624,10 @@ void ExceptionHandler(ExceptionType which) {
 		case SC_Rand:
 		DEBUG('a', "Rand syscall.\n");
 		rv = Rand_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_IntPrint:
+		DEBUG('a', "IntPrint syscall.\n");
+		IntPrint_Syscall(machine->ReadRegister(4));
 		break;
 	}
 

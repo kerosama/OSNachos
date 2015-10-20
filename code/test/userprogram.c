@@ -1,35 +1,8 @@
-/*// threadtest.cc 
-//  Simple test case for the threads assignment.
-//
-//  Create two threads, and have them context switch
-//  back and forth between themselves by calling Thread::Yield, 
-//  to illustratethe inner workings of the thread system.
-//
-// Copyright (c) 1992-1993 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
-// of liability and disclaimer of warranty provisions.
-
-
-/*
-  Need to do:
-
-    - need to add run() for clerks 
-    - create interactions between client - application clerk first 
-  
-  How to share/communicate data between customer/clerk? 
-   - customers should be created with index as a member variable // need to add
-   - create a global vector of the class  //need to add
-    - when customer acquires lock from clerk, customer passes clerk their index with a function
-      - store index in a vector // should be same size as lineCount
-    
-
-*/
 
 
 
 
 
-#include "copyright.h"
 #include "syscall.h"
 
 #define true 1
@@ -241,7 +214,9 @@ void runApplicationClerk(int line)
 
 		if(applicationBribeLineCounts[line] > 0)
 		{
-			
+			Write("Application Clerk ", 18, ConsoleOutput);
+			IntPrint(line);
+			Write("has received $500 from Customer\n ", 32, ConsoleOutput);
 			Signal(applicationBribeLineCVs[line], applicationLock);
 			applicationClerks[line].state = 1;
 		}
@@ -282,6 +257,7 @@ int main()
 {
 	int i = 0;
 
+	Write("Balls\n", 6, ConsoleOutput);
 	/*initialize number of created threads*/
 	numCustomerThreads = -1;
 	numApplicationClerkThreads = -1;
@@ -289,7 +265,7 @@ int main()
 	/*Initialize Customers here*/
 	for(i = 0; i < numCustomers; i++)
 	{
-		customers[i].money = 500 /*DO RANDOM HERE*/;
+		customers[i].money = 500 + 500*Rand(3); /*random money 500, 1100, or 1600*/
 		customers[i].ssn = i; /*ssn is id*/
 		customers[i].applicationAccepted = false;
 		customers[i].pictureTaken = false;

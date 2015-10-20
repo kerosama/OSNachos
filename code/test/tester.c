@@ -7,7 +7,25 @@
  int lockID;
  int conditionID;
 
- void test1();
+ 
+void test1(){
+  int id = CreateLock();
+  int id2 = CreateCondition();
+  int id3 = CreateLock();
+  Write("Test1.\n", 8, ConsoleOutput);
+  DestroyLock(id);
+  DestroyCondition(id2);
+  /*id3 = CreateLock();*/
+  /*Write("Only 1 acquire should be called.\n", 36, ConsoleOutput);*/
+  Acquire(id3);
+ /* Write("THERE.\n", 7, ConsoleOutput);*/
+  /*Acquire(id3);*/
+  Release(id3);
+  DestroyLock(id3);
+ /* Write("HERE.\n", 6, ConsoleOutput);*/
+  /*not reached*/
+  /*Write("\nThis is not reached.", 21, ConsoleOutput);*/
+}
  void test2();
  void test3();
 
@@ -36,29 +54,11 @@ int main() {
 	else if (num == 2)
 		Write("2!\n", 3, ConsoleOutput);
 
-    /*test1();*/
+    test1();
     /*test2();*/
 	/*test3();*/
 }
 
-void test1(){
-  int id = CreateLock();
-  int id2 = CreateCondition();
-  int id3 = CreateLock();
-  Write("Test1.\n", 8, ConsoleOutput);
-  DestroyLock(id);
-  DestroyCondition(id2);
-  /*id3 = CreateLock();*/
-  /*Write("Only 1 acquire should be called.\n", 36, ConsoleOutput);*/
-  Acquire(id3);
- /* Write("THERE.\n", 7, ConsoleOutput);*/
-  /*Acquire(id3);*/
-  Release(id3);
-  DestroyLock(id3);
- /* Write("HERE.\n", 6, ConsoleOutput);*/
-  /*not reached*/
-  /*Write("\nThis is not reached.", 21, ConsoleOutput);*/
-}
 
 void test2_t1(){
 	Acquire(lockID);

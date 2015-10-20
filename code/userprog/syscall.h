@@ -39,6 +39,7 @@
 #define SC_Wait 18
 #define SC_Broadcast 19
 #define SC_Rand 20
+#define SC_IntPrint 21
 
 #define MAXFILENAME 256
 
@@ -181,6 +182,9 @@ void Broadcast(int id, int lock_id);
 
 /*Get a random integer number from the kernel*/
 int Rand(int mod);
+
+/*Print an int using printf*/
+void IntPrint(int i);
 
 #endif /* IN_ASM */
 
