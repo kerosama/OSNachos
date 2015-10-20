@@ -1,0 +1,349 @@
+Title:  Writeup for Project 2, Fall 2015
+ Date:  10/20/2015
+ Group:	
+Brice Roland
+Jaewon Choi
+Jorge Quero
+
+ I. Requirements:
+
+
+The objective of assignment 2: 
+The goal of implementing Project 2 is to fully develop an Operating System that
+utilizes multi-programming to run several processes at once as well as developing
+system calls that bridge the gap between user programs and kernel code. By creating
+these system calls, we allow user-level 'C' programs to limitedly request information
+from the kernel space and carry out exceptions that it would not have access to otherwise.
+Additionally, applying multiprogramming on top of these system calls allows multiple
+processes to be run and interact with these syscalls at the same time via a process
+table. Each of these processes act independently and contain their own threads,
+each of which carry out their own tasks. The goal of the assignment is to orderly
+handle each process that requests space from the system and execute their calls to
+the system via exception handling.
+
+II. Assumptions:
+
+
+In order to handle the number of processes, the processes need to organized cleanly
+into a process table, handled outside of the user programs themselves (kernel code).
+Furthermore, each process with its threads need to know the address space that they
+have to use, meaning their address space must be updated with the space of the current
+thread starting them (the kernel thread forking the new thread). Each syscall must
+also interpret the value within the register given to them as either a true integer
+or parse information from a pointer given to them from memory to obtain other data
+types (such as char*). 
+
+III. Design:
+
+
+The design approach we took was to develop the syscalls and then create the process table
+and multi-programming around that. We organized the syscalls similarly to the syscalls
+given, utilizing the switch-case statement within the ExceptionHandler in Exception.cc
+to delineate what actions should be taken with the information provided in the registers.
+Any processes calling the Exec syscall are then put into the process table in which they 
+given an address space to run their appropriate threads. Within Part 3, this applies
+directly to the Passport Office, as multiple Passports Offices should be able to run
+as several processes, each with customers and clerks as threads. 
+
+IV. Implementation:
+	+ Files Modified
+../Userprog:
+exception.cc
+syscall.h
+addrspace.h/.cc
+../Test:
+Makefile
+start.s
+../Machine:
+machine.h
+
+
++ Files added
+../Userprog:
+../Test:
+tester.c
+userprogram.c
+
++ Data Structures added, and the file they were added to.
+
+1. userprog/exception.cc:
+
+//Process Table to hold processes and assign 
+class ProcessTable {
+	
+}
+
++ Data Structures modified, and the file they were added to.
+
++ Functions added and in which file.
+
+1. userprog/syscall.h:
+int CreateLock();
+void DestroyLock(int id);
+void Acquire(int id);
+void Release(int id);
+int CreateCondition();
+void DestroyCondition(int id);
+void Signal(int id, int lock_id);
+void Wait(int id, int lock_id);
+void Broadcast(int id, int lock_id);
+
+2. userprog/exception.cc
+void exec_func(int arg) {
+	printf("running thread - exec.");
+
+	currentThread->space->InitRegisters();		// set the initial register values
+	currentThread->space->RestoreState();		// load page table register
+	machine->Run();			// jump to the user progam
+}
+
+SpaceId Exec_Syscall(char *name) {
+	/* Exec - Takes in name of process and returns the id of the space for the process.
+	*  The process table is updated with the space and a new exec thread is forked.
+	*  Function is based on progtest.cc's StartProcess(char *) function.
+	*/
+	
+	OpenFile *executable = fileSystem->Open(name);
+	if (executable == NULL) {
+		printf("Unable to open file %s\n", name);
+		return -1;
+	}
+	
+	AddrSpace *space = new AddrSpace(executable);
+
+	Thread* t = new Thread("exec thread");
+	t->space = tempAddrSpace;
+
+	num_processes++;
+	processTable[current_process_num] = new Process(t);
+	processTable[current_process_num++]->addrSpace = tempAddrSpace;;
+	
+	t->Fork(exec_func, 0);
+
+	currentThread->Yield();
+	return current_process_num - 1;
+}
+
+void kernel_thread(int va) {
+
+}
+
+void Fork_Syscall(VoidFunctionPtr func)
+{
+	if (currentThread->space == NULL)
+	{
+		printf("Fork: Current thread has no address space.\n");
+		return;
+	}
+	Thread* kernelThread = new Thread("kernel thread");
+	processTable[current_process_num]->addThread(kernelThread);
+	kernelThread->space = currentThread->space;
+	kernelThread->Fork((VoidFunctionPtr)func, 0);
+}
+
+int CreateLock_Syscall() {
+	char name[5];
+	sprintf(name, "%d", current_lock_num);
+	strcat(name, "lock");
+	/*struct Lock_Struct temp;*/
+	Lock *temp = new Lock(name);
+	lock_arr[current_lock_num] = temp;
+	lock_in_use[current_lock_num] = false;
+	should_delete_lock[current_lock_num] = false;
+	current_lock_num++;
+	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
+	return (current_lock_num - 1);
+}
+
+void DestroyLock_Syscall(int id) {
+	if (id > current_lock_num || id < 0) {
+		printf("Error: Destroy Lock Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_in_use[id])
+		should_delete_lock[id] = true;
+	else
+		delete lock_arr[id];
+}
+
+void Acquire_Syscall(int id) {
+	if (id > current_lock_num || id < 0) {
+		printf("Error: Acquire Lock Syscall - id does not exist.\n");
+		return;
+	}
+	lock_arr[id]->Acquire("except");
+	lock_in_use[id] = true;
+}
+
+void Release_Syscall(int id) {
+	if (id > current_lock_num || id < 0) {
+		printf("Error: Release Lock Syscall - id does not exist.\n");
+		return;
+	}
+	lock_in_use[id] = false;
+	lock_arr[id]->Release("except");
+	printf("2\n");
+	if (should_delete_lock[id])
+		delete lock_arr[id];
+}
+
+int CreateCondition_Syscall() {
+	Condition *tempCond = new Condition("temp");
+	cond_arr[current_cond_num++] = tempCond;
+	return current_cond_num - 1;
+}
+
+void DestroyCondition_Syscall(int id) {
+	if (id > current_cond_num || id < 0) {
+		printf("Error: Destroy Condition Syscall - id does not exist.\n");
+		return;
+	}
+	delete cond_arr[id];
+}
+
+void Signal_Syscall(int id, int lock_id) {
+	if (id > current_cond_num || id < 0) {
+		printf("Error: Signal Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num || lock_id < 0) {
+		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Signal("", lock_arr[lock_id]);
+}
+
+void Wait_Syscall(int id, int lock_id) {
+	if (id > current_cond_num || id < 0) {
+		printf("Error: Wait Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num || lock_id < 0) {
+		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Wait("", lock_arr[lock_id]);
+}
+
+void Broadcast_Syscall(int id, int lock_id) {
+	if (id > current_cond_num || id < 0) {
+		printf("Error: Broadcast Condition Syscall - id does not exist.\n");
+		return;
+	}
+	if (lock_id > current_lock_num || lock_id < 0) {
+		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
+		return;
+	}
+	cond_arr[id]->Broadcast(lock_arr[lock_id]);
+}
+
++ Functions modified and in which file.
+
+1. userprog/exception.cc:
+
+void ExceptionHandler(ExceptionType which) {
+    int type = machine->ReadRegister(2); // Which syscall?
+    int rv=0; 	// the return value from a syscall
+
+    if ( which == SyscallException ) {
+	switch (type) {
+
+	   // ... unmodified syscall cases ... //
+	   // ...
+
+	   //modified cases: 
+		case SC_Exec:
+		DEBUG('a', "Exec syscall.\n");
+		Exec_Syscall((char*)machine->ReadRegister(4));
+		break;
+		case SC_Fork:
+		DEBUG('a', "Fork syscall.\n");
+		Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
+		break;
+		case SC_CreateLock:
+		DEBUG('a', "CreateLock syscall.\n");
+		CreateLock_Syscall();
+		break;
+		case SC_DestroyLock:
+		DEBUG('a', "DestroyLock syscall.\n");
+		DestroyLock_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Acquire:
+		DEBUG('a', "Acquire syscall.\n");
+		Acquire_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Release:
+		DEBUG('a', "Release syscall.\n");
+		Release_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_CreateCondition:
+		DEBUG('a', "CreateCondition syscall.\n");
+		CreateCondition_Syscall();
+		break;
+		case SC_DestroyCondition:
+		DEBUG('a', "DestroyCondition syscall.\n");
+		DestroyCondition_Syscall(machine->ReadRegister(4));
+		break;
+		case SC_Signal:
+		DEBUG('a', "Signal syscall.\n");
+		Signal_Syscall(machine->ReadRegister(4), 
+				machine->ReadRegister(5));
+		break;
+		case SC_Wait:
+		DEBUG('a', "Wait syscall.\n");
+		Wait_Syscall(machine->ReadRegister(4), 
+				machine->ReadRegister(5));
+		break;
+		case SC_Broadcast:
+		DEBUG('a', "Broadcast syscall.\n");
+		Broadcast_Syscall(machine->ReadRegister(4),
+				machine->ReadRegister(5));
+		break;
+	}
+	// ...rest of function
+}
+
+V. Testing:  (For each test case, you must show)
+	+ How to test
+	compile via gmake (in test and userprog directories) and run using the following commands.
+
+	nachos -x ../test/tester - Test suite for testing syscalls.
+	nachos -x ../test/userprog - The passport office for part 3 will immediately run with default settings. 
+	
+	+ Test Output
+	- Part 1/2 testing output - The user program with call the syscall to write to the screen for each test and note on the correctness of events occuring.
+	- Part 2 testing output - The output will include the interaction of various clerks with customers, senators, managers, etc. This follows the output guidelines of project 1.
+
+
+VI. Discussion:
+	+ Experiment expectation.  (What is supposed to happen.)
+	Part 1/2: Allow for user programs to call kernel-only commands throught the use of exceptions
+	via syscalls. These syscalls run kernel-only commands and return any needed information back 
+	to the user program that would be needed. This may include the id number of a lock or condition 
+	variable, or the output pointer to a file. Processes are handled for multi-programming and allow
+	multiple processes to be handled at once. Threads are given proper address spaces within their 
+	processes to run.
+	Part 3: Be able to run the passport office as a user program utilizing code in C. All calls previously
+	denoted as kernel code should now run through syscalls. The output remains the same, and having
+	multiple passport office processes running should be possible.
+
+	+ Experiment result.  (What actually happened.)
+	Part 1/2: Locks and Condition variables were implemented fully. Locks and conditions can be created 
+	and interacted with via syscalls. Creation syscalls return the id of that lock/condition that can be
+	used later to interact with that sychronization device later on. Yield and Exit also work as intended.
+	Fork and Exec's incorporation with the process table is currently failing. Attempting to read in a 
+	user program into exec causes a failure to read and Fork causes a segmentation fault.
+
+	Part 3: IN PROGRESS
+
+	+ Explanation
+
+	Locks and Condition variables work as intended via syscalls. They can be interacted with appropriately 
+	and allow the passport office to run accordingly with synchronization in order. The exit and yield functions
+	also work accordingly, and appropriately exit or yield a thread that call it (such as the clerks going on
+	break or customers leaving the office). Fork and exec are not implemented yet...
+
+		
+
+VIII. Miscellaneous:
+- Whatever else you want the grader know about your development.  You can create your own subsections headings here.
