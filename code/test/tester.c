@@ -27,9 +27,17 @@ int main() {
     bytesread = Read( buf, 100, fd );
     Write( buf, bytesread, ConsoleOutput );
 	Close(fd);*/
+	int num;
+	num = Rand(3);
+	if (num == 0)
+		Write("0!\n", 3, ConsoleOutput);
+	else if (num == 1)
+		Write("1!\n", 3, ConsoleOutput);
+	else if (num == 2)
+		Write("2!\n", 3, ConsoleOutput);
 
     /*test1();*/
-    test2();
+    /*test2();*/
 	/*test3();*/
 }
 

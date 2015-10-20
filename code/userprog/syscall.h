@@ -38,6 +38,7 @@
 #define SC_Signal 17
 #define SC_Wait 18
 #define SC_Broadcast 19
+#define SC_Rand 20
 
 #define MAXFILENAME 256
 
@@ -177,6 +178,9 @@ void Wait(int id, int lock_id);
  * All threads on the wait queue are signaled
  */
 void Broadcast(int id, int lock_id);
+
+/*Get a random integer number from the kernel*/
+int Rand(int mod);
 
 #endif /* IN_ASM */
 

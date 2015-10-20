@@ -26,6 +26,8 @@
 #include "syscall.h"
 #include "synch.h"
 #include "addrspace.h"
+#include <cmath>
+#include <time.h>
 #include <stdio.h>
 #include <iostream>
 
@@ -95,6 +97,7 @@ int num_processes_max = 50;
 SpaceId current_process_num = 0;
 Process *processTable[50];
 int num_thr = 0; //Number of current threads (for use in exit)
+int rnd = 0;
 
 struct Lock_Struct {
 	Lock* lock;
@@ -506,6 +509,12 @@ void Broadcast_Syscall(int id, int lock_id) {
 		cond_arr[id]->Broadcast(lock_arr[lock_id]);
 }
 
+int Rand_Syscall(int mod) {
+	srand(time(NULL));
+	rnd = rand() % mod;
+	return rnd;
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -562,7 +571,7 @@ void ExceptionHandler(ExceptionType which) {
 		printf("%d\n", x);
 		//data[machine->ReadRegister(5)] = '\0';
 			printf("output: %s\n", data);
-		Exec_Syscall(data);
+		rv = Exec_Syscall(data);
 		break;
 		case SC_Fork:
 		DEBUG('a', "Fork syscall.\n");
@@ -570,7 +579,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_CreateLock:
 		DEBUG('a', "CreateLock syscall.\n");
-		CreateLock_Syscall();
+		rv = CreateLock_Syscall();
 		break;
 		case SC_DestroyLock:
 		DEBUG('a', "DestroyLock syscall.\n");
@@ -586,7 +595,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_CreateCondition:
 		DEBUG('a', "CreateCondition syscall.\n");
-		CreateCondition_Syscall();
+		rv = CreateCondition_Syscall();
 		break;
 		case SC_DestroyCondition:
 		DEBUG('a', "DestroyCondition syscall.\n");
@@ -606,6 +615,10 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "Broadcast syscall.\n");
 		Broadcast_Syscall(machine->ReadRegister(4),
 				machine->ReadRegister(5));
+		break;
+		case SC_Rand:
+		DEBUG('a', "Rand syscall.\n");
+		rv = Rand_Syscall(machine->ReadRegister(4));
 		break;
 	}
 
