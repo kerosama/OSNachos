@@ -112,12 +112,15 @@ bool should_delete_cond[100]; //Think this needs to be implemented to delete loc
 int current_cond_num = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
+	printf("BALLZ\n");
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
     // Errors can generally mean a bad virtual address was passed in.
     bool result;
     int n=0;			// The number of bytes copied in
     int *paddr = new int;
+
+	printf("BALLZ1\n");
 
     while ( n >= 0 && n < len) {
       result = machine->ReadMem( vaddr, 1, paddr );
@@ -126,17 +129,26 @@ int copyin(unsigned int vaddr, int len, char *buf) {
    			result = machine->ReadMem( vaddr, 1, paddr ); // FALL 09 CHANGES: TO HANDLE PAGE FAULT IN THE ReadMem SYS CALL
 	  }	
       
+	 // printf("%d\n", *paddr);
+	   //printf("%s\n", buf[n]);
+	  printf("BALLZ2\n");
       buf[n++] = *paddr;
+
+	  printf("BALLZ3\n");
      
       if ( !result ) {
 	//translation failed
 	return -1;
       }
 
+	  printf("BALLZ4\n");
+
       vaddr++;
     }
 
+	printf("BALLZ5\n");
     delete paddr;
+	printf("BALLZ\n");
     return len;
 }
 
@@ -338,7 +350,7 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
-	
+	printf("TEST\n");
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
 		printf("Unable to open file %s\n", name);
@@ -347,21 +359,22 @@ SpaceId Exec_Syscall(char *name) {
 	printf("TEST\n");
 	/*AddrSpace *space = new AddrSpace(executable);*/
 	tempAddrSpace = new AddrSpace(executable);
-
+	printf("BALLZTEST100\n");
 	Thread* t = new Thread("exec thread");
 	t->space = tempAddrSpace;
-
+	printf("BALLZTEST101\n");
 	num_processes++;
 	processTable[current_process_num] = new Process(t);
-	processTable[current_process_num++]->addrSpace = tempAddrSpace;;
+	processTable[current_process_num++]->addrSpace = tempAddrSpace;
 	//processTable[current_process_num++]->Start(tempAddrSpace);
 
 	//Process *new_Proc = new Process(t);
 	//processTable[current_process_num++] = new_Proc;
 	//SpaceId sID = 0; /*set to process table id*/
 	
+	printf("BALLZTEST1\n");
 	t->Fork(exec_func, 0);
-
+	printf("BALLZTEST2\n");
 	delete executable;
 	return current_process_num - 1;
 }
@@ -539,8 +552,16 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_Exec:
 		DEBUG('a', "Exec syscall.\n");
-		char* data;
-		copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
+		printf("balls\n");
+		char* data = new char[machine->ReadRegister(5)];
+		
+
+		printf("%d\n", machine->ReadRegister(4));
+		printf("%d\n", machine->ReadRegister(5));
+		int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
+		printf("%d\n", x);
+		//data[machine->ReadRegister(5)] = '\0';
+			printf("output: %s\n", data);
 		Exec_Syscall(data);
 		break;
 		case SC_Fork:
