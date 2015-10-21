@@ -14,7 +14,7 @@
 #define  numPassportClerks 5
 #define  numCashiers 5
 #define  numManagers 1 
-#define  NumSenators 10
+#define  numSenators 10
 
 /*NUMBER OF EACH THREAD CREATED*/
 int numCustomerThreads;
@@ -445,14 +445,80 @@ void joinCashierLine(int ssn)
 	Release(cashierLineLocks[myLine]);
 }
 
-/*struct Manager 
+struct Manager 
 {
 	int pClerkMoney;
 	int aClerkMoney;
 	int ppClerkMoney;
 	int cClerkMoney;
 	int totalMoney;
-};*/
+};
+struct Manager manager;
+
+void updateTotalMoney() {
+	int i = 0;
+	
+	manager.pClerkMoney = 0;
+	manager.aClerkMoney = 0;
+	manager.ppClerkMoney = 0;
+	manager.cClerkMoney = 0;
+
+	for (i = 0; i < numApplicationClerks; i++)
+		manager.aClerkMoney += applicationClerks[i].money;
+	for (i = 0; i < numPictureClerks; i++)
+		manager.pClerkMoney += pictureClerks[i].money;
+	for (i = 0; i < numPassportClerks; i++)
+		manager.ppClerkMoney += passportClerks[i].money;
+	for (i = 0; i < numCashiers; i++)
+		manager.cClerkMoney += cashiers[i].money;
+
+	manager.totalMoney = manager.pClerkMoney + manager.aClerkMoney + manager.ppClerkMoney + manager.cClerkMoney;
+}
+
+int getaClerkMoney() {
+	updateTotalMoney();
+	Write("Manager has counted a total of $", 32, ConsoleOutput);
+	IntPrint(manager.aClerkMoney);
+	Write("for ApplicationClerks.\n ", 23, ConsoleOutput);
+	return manager.aClerkMoney;
+}
+
+int getpClerkMoney() {
+	updateTotalMoney();
+	Write("Manager has counted a total of $", 32, ConsoleOutput);
+	IntPrint(manager.pClerkMoney);
+	Write("for PictureClerks.\n ", 23, ConsoleOutput);
+	return manager.pClerkMoney;
+}
+
+int getppClerkMoney() {
+	updateTotalMoney();
+	Write("Manager has counted a total of $", 32, ConsoleOutput);
+	IntPrint(manager.ppClerkMoney);
+	Write("for PassportClerks.\n ", 23, ConsoleOutput);
+	return manager.ppClerkMoney;
+}
+
+int getcClerkMoney() {
+	updateTotalMoney();
+	Write("Manager has counted a total of $", 32, ConsoleOutput);
+	IntPrint(manager.cClerkMoney);
+	Write("for Cashiers.\n ", 14, ConsoleOutput);
+	return manager.cClerkMoney;
+}
+
+int gettotalMoney() {
+	updateTotalMoney();
+	Write("Manager has counted a total of $", 32, ConsoleOutput);
+	IntPrint(manager.totalMoney);
+	Write("for the office.\n ", 15, ConsoleOutput);
+	return manager.totalMoney;
+}
+
+void makeManager()
+{
+	numManagerThreads++;
+}
 
 void runCustomer(int ssn)
 {
@@ -495,7 +561,27 @@ void createCustomer()
 	runCustomer(numCustomerThreads);
 }
 
+struct Senator 
+{
+	int money;
+	int ssn;
+	int applicationAccepted;
+	int pictureTaken;
+	int certified;
+	int bribed;
+};
+struct Senator senators[numSenators];
 
+void runSenator(int ssn)
+{
+	senators[ssn].ssn = ssn;
+}
+
+void createSenator()
+{
+	numSenatorThreads++;
+	/*runSenator(numSenatorThreads);*/
+}
 
 void runApplicationClerk(int line)
 {
@@ -775,7 +861,6 @@ int main()
 {
 	int i = 0;
 
-	Write("Balls\n", 6, ConsoleOutput);
 	/*initialize number of created threads*/
 	numCustomerThreads = -1;
 	numApplicationClerkThreads = -1;
@@ -828,6 +913,25 @@ int main()
 
 		Fork((void(*)())createPassportClerk);
 	}
-  
 
+	/*Initialize Manager here*/
+	manager.pClerkMoney = 0;
+	manager.aClerkMoney = 0;
+	manager.ppClerkMoney = 0;
+	manager.cClerkMoney = 0;
+	manager.totalMoney = 0;
+	Fork((void(*)())makeManager);
+  
+	/*Initialize Senators here*/
+	for (i = 0; i < numSenators; i++)
+	{
+		senators[i].money = 500 + 500 * Rand(3); /*random money 500, 1100, or 1600*/
+		senators[i].ssn = i; /*ssn is id*/
+		senators[i].applicationAccepted = false;
+		senators[i].pictureTaken = false;
+		senators[i].certified = false;
+		senators[i].bribed = false;
+
+		/*Fork((void(*)())createSenator);*/
+	}
 }
