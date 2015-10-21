@@ -129,7 +129,6 @@ int copyin(unsigned int vaddr, int len, char *buf) {
     int n=0;			// The number of bytes copied in
     int *paddr = new int;
 
-
     while ( n >= 0 && n < len) {
       result = machine->ReadMem( vaddr, 1, paddr );
       while(!result) // FALL 09 CHANGES
@@ -140,7 +139,6 @@ int copyin(unsigned int vaddr, int len, char *buf) {
 	 // printf("%d\n", *paddr);
 	   //printf("%s\n", buf[n]);
       buf[n++] = *paddr;
-
      
       if ( !result ) {
 	//translation failed
@@ -359,7 +357,9 @@ SpaceId Exec_Syscall(char *name) {
 	}
 	/*AddrSpace *space = new AddrSpace(executable);*/
 	tempAddrSpace = new AddrSpace(executable);
+
 	//tempAddrSpace->lock = mainLock.lock;
+
 	Thread* t = new Thread("exec thread");
 	t->space = tempAddrSpace;
 	num_processes++;
@@ -370,7 +370,7 @@ SpaceId Exec_Syscall(char *name) {
 	//Process *new_Proc = new Process(t);
 	//processTable[current_process_num++] = new_Proc;
 	//SpaceId sID = 0; /*set to process table id*/
-	
+
 	t->Fork(exec_func, 0);
 	delete executable;
 	return current_process_num - 1;
@@ -568,10 +568,7 @@ void ExceptionHandler(ExceptionType which) {
 		case SC_Exec:
 		DEBUG('a', "Exec syscall.\n");
 		char* data = new char[machine->ReadRegister(5)];
-		printf("%d\n", machine->ReadRegister(4));
-		printf("%d\n", machine->ReadRegister(5));
 		int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
-		printf("%d\n", x);
 		rv = Exec_Syscall(data);
 		break;
 		case SC_Fork:
