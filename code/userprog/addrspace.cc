@@ -146,23 +146,38 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < numPages; i++) {
+    
+
+	for (i = 0; i < numPages; i++) {
+	//lock->Acquire("");	
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
+	
+	int mapping = 0;// = fileTable.map.Find();
+	if(mapping == -1)
+	{
+		printf("Error: could not find a physical address to map to virtual address.");
+		//lock->Release("");
+		break;
+	}
+	pageTable[i].physicalPage = mapping;
+
+
 	pageTable[i].valid = TRUE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
 	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
+	executable->ReadAt(&machine->mainMemory[pageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
+	//lock->Release("");
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    bzero(machine->mainMemory, size);
+    //bzero(machine->mainMemory, size);
 
 // then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
+ /*   if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 			noffH.code.virtualAddr, noffH.code.size);
         executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
@@ -173,7 +188,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 			noffH.initData.virtualAddr, noffH.initData.size);
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 			noffH.initData.size, noffH.initData.inFileAddr);
-    }
+    }*/
 
 }
 
@@ -265,12 +280,14 @@ void AddrSpace::AddPages()
 	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
+		//lock->Acquire("");
 		tempTable[i].virtualPage = pageTable[i].virtualPage;	
 		tempTable[i].physicalPage = pageTable[i].physicalPage;
 		tempTable[i].valid = pageTable[i].valid;
 		tempTable[i].use = pageTable[i].use;
 		tempTable[i].dirty = pageTable[i].dirty;
 		tempTable[i].readOnly = pageTable[i].readOnly;
+	//	lock->Release("");
 	}
 
 	delete pageTable;
@@ -279,12 +296,16 @@ void AddrSpace::AddPages()
 
 	for(unsigned int i = numPages; i < numPages + 8; i++)
 	{
+		//lock->Acquire("");
 		pageTable[i].virtualPage = i;
 		pageTable[i].physicalPage = i;
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE; 
+		//lock->Release("");
 	}
 	printf("A THREE\n");
 }
+
+

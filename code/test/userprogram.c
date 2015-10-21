@@ -16,6 +16,7 @@
 #define  numManagers 1 
 #define  NumSenators 10
 
+
 /*NUMBER OF EACH THREAD CREATED*/
 int numCustomerThreads;
 int numApplicationClerkThreads;
@@ -167,6 +168,8 @@ void joinApplicationLine(int ssn)
 	Release(applicationLineLocks[myLine]);
 }
 
+
+
 void runCustomer(int ssn)
 {
 	while(customers[ssn].done == false);
@@ -203,8 +206,6 @@ void createCustomer()
 	numCustomerThreads++;
 	runCustomer(numCustomerThreads);
 }
-
-
 
 void runApplicationClerk(int line)
 {
@@ -250,14 +251,11 @@ void createApplicationClerk()
 	runApplicationClerk(numApplicationClerkThreads++);
 }
 
-
-
-
 int main()
 {
 	int i = 0;
 
-	Write("Balls\n", 6, ConsoleOutput);
+	Write("test\n", 6, ConsoleOutput);
 	/*initialize number of created threads*/
 	numCustomerThreads = -1;
 	numApplicationClerkThreads = -1;
@@ -286,10 +284,6 @@ int main()
 
 		Fork((void(*)())createApplicationClerk);
 	}
-
-	
-	
-	
-  
-
 }
+
+

@@ -1803,3 +1803,182 @@ int main()
   }/*end of creating client threads*/
 
 }/*end of problem 2*/
+
+
+
+
+
+
+
+
+
+
+
+
+/*Acquire(applicationLock);
+	myLine = findSmallestApplicationLine();
+
+	if(applicationClerks[myLine].state == 1)
+	{
+		if(customers[ssn].bribed == true)
+		{
+			applicationBribeLineCounts[myLine]++;
+			
+		}
+		else
+		{
+			applicationLineCounts[myLine]++;
+		}
+
+		Wait(applicationLineCVs[myLine], applicationLock);
+	}
+
+	applicationClerks[myLine].state = 1;
+	Release(applicationLock);
+
+	Acquire(applicationLineLocks[myLine]);
+	
+	Signal(applicationLineCVs[myLine], applicationLineLocks[myLine]);
+
+	Wait(applicationLineCVs[myLine], applicationLineLocks[myLine]);
+
+	customers[ssn].applicationAccepted = true;
+
+	if(customers[ssn].bribed == true)
+	{
+		applicationBribeLineCounts[myLine]--;
+	}
+	else
+	{
+		applicationLineCounts[myLine]--;
+	}
+
+	Signal(applicationLineCVs[myLine], applicationLineLocks[myLine]);
+	Release(applicationLineLocks[myLine]);*/
+
+void runCustomer(int ssn)
+{
+	while(customers[ssn].done == false);
+	{
+		int randomLine = 0; /*generate random number here*/
+		switch(randomLine)
+		{
+			case 0:
+				if(customers[ssn].applicationAccepted == false)
+				{
+					joinApplicationLine(ssn);
+				}
+			break;
+			case 1:
+				if(customers[ssn].pictureTaken == false)
+				{
+				}
+			break;
+			case 2:
+				if(customers[ssn].certified == false)
+				{
+				}
+			break;
+			case 3:
+			break;
+		}
+
+
+	}
+}
+
+void createCustomer()
+{
+	numCustomerThreads++;
+	runCustomer(numCustomerThreads);
+}
+
+
+
+void runApplicationClerk(int line)
+{
+	while(true)
+	{
+		Acquire(applicationLock);
+
+		if(applicationBribeLineCounts[line] > 0)
+		{
+			Write("Application Clerk ", 18, ConsoleOutput);
+			IntPrint(line);
+			Write("has received $500 from Customer\n ", 32, ConsoleOutput);
+			Signal(applicationBribeLineCVs[line], applicationLock);
+			applicationClerks[line].state = 1;
+		}
+		else if(applicationLineCounts[line] > 0)
+		{
+			Signal(applicationLineCVs[line], applicationLock);
+			applicationClerks[line].state = 1;
+		}
+		else
+		{
+			applicationClerks[line].state = 2; /*on break*/
+		}
+
+		Acquire(applicationLineLocks[line]);
+		Release(applicationLock);
+
+		Wait(applicationLineCVs[line], applicationLineLocks[line]);
+
+		Signal(applicationLineCVs[line], applicationLineLocks[line]);
+
+		Wait(applicationLineCVs[line], applicationLineLocks[line]);
+
+		Release(applicationLineLocks[line]);
+
+	}
+}
+
+void createApplicationClerk()
+{
+	numApplicationClerkThreads++;
+	runApplicationClerk(numApplicationClerkThreads++);
+}
+
+
+
+
+int main()
+{
+	int i = 0;
+
+	Write("Balls\n", 6, ConsoleOutput);
+	/*initialize number of created threads*/
+	numCustomerThreads = -1;
+	numApplicationClerkThreads = -1;
+
+	/*Initialize Customers here*/
+	for(i = 0; i < numCustomers; i++)
+	{
+		customers[i].money = 500 + 500*Rand(3); /*random money 500, 1100, or 1600*/
+		customers[i].ssn = i; /*ssn is id*/
+		customers[i].applicationAccepted = false;
+		customers[i].pictureTaken = false;
+		customers[i].certified = false;
+		customers[i].bribed = false;
+
+		Fork((void(*)())createCustomer);
+	}
+
+	/*Initialize Application Clerks here*/
+	for(i = 0; i < numApplicationClerks; i++)
+	{
+		applicationClerks[i].state = 0;
+		applicationClerks[i].lineCount;
+		applicationClerks[i].bribeLineCount;
+		applicationClerks[i].money;
+		applicationClerks[i].line = i;
+
+		Fork((void(*)())createApplicationClerk);
+	}
+
+	
+	
+	
+  
+
+}

@@ -34,6 +34,15 @@
 
 using namespace std;
 
+
+
+
+struct Lock_Struct {
+	Lock* lock;
+};
+
+struct Lock_Struct mainLock;
+
 //Private Variables
 int num_processes;
 class Process
@@ -99,9 +108,7 @@ Process *processTable[50];
 int num_thr = 0; //Number of current threads (for use in exit)
 int rnd = 0;
 
-struct Lock_Struct {
-	Lock* lock;
-};
+
 
 Lock *lock_arr[100];
 /*Lock_Struct lock_arr[100];*/
@@ -115,7 +122,6 @@ bool should_delete_cond[100]; //Think this needs to be implemented to delete loc
 int current_cond_num = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
-	printf("BALLZ\n");
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
     // Errors can generally mean a bad virtual address was passed in.
@@ -123,7 +129,6 @@ int copyin(unsigned int vaddr, int len, char *buf) {
     int n=0;			// The number of bytes copied in
     int *paddr = new int;
 
-	printf("BALLZ1\n");
 
     while ( n >= 0 && n < len) {
       result = machine->ReadMem( vaddr, 1, paddr );
@@ -134,24 +139,18 @@ int copyin(unsigned int vaddr, int len, char *buf) {
       
 	 // printf("%d\n", *paddr);
 	   //printf("%s\n", buf[n]);
-	  printf("BALLZ2\n");
       buf[n++] = *paddr;
 
-	  printf("BALLZ3\n");
      
       if ( !result ) {
 	//translation failed
 	return -1;
       }
 
-	  printf("BALLZ4\n");
-
       vaddr++;
     }
 
-	printf("BALLZ5\n");
     delete paddr;
-	printf("BALLZ\n");
     return len;
 }
 
@@ -353,19 +352,16 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
-	printf("TEST\n");
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
 		printf("Unable to open file %s\n", name);
 		return -1;
 	}
-	printf("TEST\n");
 	/*AddrSpace *space = new AddrSpace(executable);*/
 	tempAddrSpace = new AddrSpace(executable);
-	printf("BALLZTEST100\n");
+	//tempAddrSpace->lock = mainLock.lock;
 	Thread* t = new Thread("exec thread");
 	t->space = tempAddrSpace;
-	printf("BALLZTEST101\n");
 	num_processes++;
 	processTable[current_process_num] = new Process(t);
 	processTable[current_process_num++]->addrSpace = tempAddrSpace;
@@ -375,9 +371,7 @@ SpaceId Exec_Syscall(char *name) {
 	//processTable[current_process_num++] = new_Proc;
 	//SpaceId sID = 0; /*set to process table id*/
 	
-	printf("BALLZTEST1\n");
 	t->Fork(exec_func, 0);
-	printf("BALLZTEST2\n");
 	delete executable;
 	return current_process_num - 1;
 }
@@ -388,9 +382,16 @@ void kernel_thread(int va) {
 
 void Fork_Syscall(VoidFunctionPtr func)
 {
+	printf("here0\n");
 	Thread* kernelThread = new Thread("kernel thread");
-	processTable[current_process_num]->addThread(kernelThread);
+	printf("here1\n");
+	//currentThread->space->InitRegisters();		// set the initial register values
+			// load page table register
+	
 	kernelThread->space = currentThread->space;
+	processTable[current_process_num]->addThread(kernelThread);
+	printf("here2\n");
+	printf("here3\n");
 	kernelThread->Fork((VoidFunctionPtr)func, 0);
 }
 
@@ -566,20 +567,16 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		case SC_Exec:
 		DEBUG('a', "Exec syscall.\n");
-		printf("balls\n");
 		char* data = new char[machine->ReadRegister(5)];
-		
-
 		printf("%d\n", machine->ReadRegister(4));
 		printf("%d\n", machine->ReadRegister(5));
 		int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
 		printf("%d\n", x);
-		//data[machine->ReadRegister(5)] = '\0';
-			printf("output: %s\n", data);
 		rv = Exec_Syscall(data);
 		break;
 		case SC_Fork:
 		DEBUG('a', "Fork syscall.\n");
+		printf("forking\n");
 		Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
 		break;
 		case SC_CreateLock:

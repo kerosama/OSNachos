@@ -9,9 +9,9 @@
 
 class Lock;
 
-class Table {
-    BitMap map;
-    void **table;
+class Table {    
+	BitMap map;
+	void **table;
     Lock *lock;
     int size;
  public:
@@ -20,6 +20,8 @@ class Table {
     void *Get(int);
     int Put(void *);
     void *Remove(int);
+	
+
 };
 
 
