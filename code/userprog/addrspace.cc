@@ -245,7 +245,9 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState() 
-{}
+{
+	
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -257,8 +259,11 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable;
-    machine->pageTableSize = numPages;
+	for (int a = 0; a < TLBSize; a++)
+		machine->tlb[a].valid = false;
+
+    //machine->pageTable = pageTable;
+    //machine->pageTableSize = numPages;
 }
 
 TranslationEntry* AddrSpace::getPageTable()
@@ -275,7 +280,6 @@ TranslationEntry* AddrSpace::getPageTable()
 //----------------------------------------------------------------------
 void AddrSpace::AddPages()
 {
-	printf("A ONE\n");
 	//Add 8 pages to page table
 	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
@@ -291,7 +295,6 @@ void AddrSpace::AddPages()
 	}
 
 	delete pageTable;
-	printf("A TWO\n");
 	pageTable = tempTable;
 
 	for(unsigned int i = numPages; i < numPages + 8; i++)
@@ -305,7 +308,6 @@ void AddrSpace::AddPages()
 		pageTable[i].readOnly = FALSE; 
 		//lock->Release("");
 	}
-	printf("A THREE\n");
 }
 
 

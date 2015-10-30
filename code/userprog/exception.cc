@@ -107,7 +107,7 @@ SpaceId current_process_num = 0;
 Process *processTable[50];
 int num_thr = 0; //Number of current threads (for use in exit)
 int rnd = 0;
-
+int currentTLB = 0;
 
 
 Lock *lock_arr[100];
@@ -329,6 +329,7 @@ void Close_Syscall(int fd) {
 void Exit_Syscall(int status) {
 	// If there are other threads, finish the thread, otherwise call halt
 	// and stop the user program.
+	printf("Output: %d\n", status);
 	if (num_thr > 1) {
 		num_thr--;
 		currentThread->Finish();
@@ -521,10 +522,34 @@ void IntPrint_Syscall(int i)
 	printf("%d", i);
 }
 
+void handlePageFault()
+{
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+	int vaddr = machine->ReadRegister(BadVAddrReg);
+	int vpage = vaddr / PageSize;
+
+	TranslationEntry pageTable = currentThread->space->getPageTable()[vpage];
+
+	machine->tlb[currentTLB].physicalPage = pageTable.physicalPage;
+	machine->tlb[currentTLB].virtualPage = pageTable.virtualPage;
+	machine->tlb[currentTLB].valid = true;
+	machine->tlb[currentTLB].use = false;
+	machine->tlb[currentTLB].dirty = false;
+	machine->tlb[currentTLB].readOnly = false;
+
+	//printf("PPage: %d\n", pageTable.physicalPage);
+	//printf("VPage: %d\n", pageTable.virtualPage);
+	currentTLB = (currentTLB + 1) % TLBSize;
+
+	(void) interrupt->SetLevel(oldLevel);
+
+	printf("VPage: %d\n", pageTable.virtualPage);
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
-
     if ( which == SyscallException ) {
 	switch (type) {
 	    default:
@@ -631,7 +656,10 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
-    } else {
+    } else if(which == PageFaultException) {
+		handlePageFault();
+		return;
+	} else {
       cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<<endl;
       interrupt->Halt();
     }
