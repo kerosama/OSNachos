@@ -83,6 +83,7 @@ class Lock {
 	Thread* owner;
 	List* queue;
     // plus some other stuff you'll need to define
+	int lockvar;
 };
 
 // The following class defines a "condition variable".  A condition

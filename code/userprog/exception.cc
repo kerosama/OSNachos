@@ -389,6 +389,11 @@ void Fork_Syscall(VoidFunctionPtr func)
 			// load page table register
 	
 	kernelThread->space = currentThread->space;
+	if(processTable[current_process_num] == NULL)
+	{
+		processTable[current_process_num] = new Process(currentThread);
+	}
+	processTable[current_process_num]->addrSpace = kernelThread->space;
 	processTable[current_process_num]->addThread(kernelThread);
 	printf("here2\n");
 	printf("here3\n");

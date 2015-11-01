@@ -75,7 +75,7 @@ Machine::Machine(bool debug)
     pageTable = NULL;
 #else	// use linear page table
     tlb = NULL;
-    pageTable = NULL;
+    pageTable = new TranslationEntry[NumPhysPages];
 #endif
 
     singleStep = debug;

@@ -106,6 +106,7 @@ Lock::Lock(char* debugName)
 	name = debugName;
 	acquired = false;
 	queue = new List;
+	lockvar = 0;
 }
 Lock::~Lock() 
 {

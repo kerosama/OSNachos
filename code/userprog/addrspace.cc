@@ -118,13 +118,16 @@ SwapHeader (NoffHeader *noffH)
 //----------------------------------------------------------------------
 
 AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
-    NoffHeader noffH;
+	NoffHeader noffH;
     unsigned int i, size;
 
+	pageTable = machine->pageTable;
+	PTLock = new Lock("Page Table Lock");
     // Don't allocate the input or output to disk files
     fileTable.Put(0);
     fileTable.Put(0);
 
+	
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && 
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
@@ -145,39 +148,40 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
-    
-
-	for (i = 0; i < numPages; i++) {
-	//lock->Acquire("");	
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	
-	int mapping = 0;// = fileTable.map.Find();
-	if(mapping == -1)
+    for (i = 0; i < numPages; i++) 
 	{
-		printf("Error: could not find a physical address to map to virtual address.");
-		//lock->Release("");
-		break;
-	}
-	pageTable[i].physicalPage = mapping;
+		PTLock->Acquire("");	
+		printf("balls\n");
+		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+	
+
+		int mapping = mmBitMap->Find();
+		if(mapping == -1)
+		{
+			printf("Error: could not find a physical address to map to virtual address.");
+			PTLock->Release("");
+			break;
+		}
+		
+		pageTable[i].physicalPage = mapping;
 
 
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-	executable->ReadAt(&machine->mainMemory[pageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
-	//lock->Release("");
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+						// a separate page, we could set its 
+						// pages to be read-only
+		executable->ReadAt(&machine->mainMemory[pageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
+		PTLock->Release("");
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    //bzero(machine->mainMemory, size);
+   // bzero(machine->mainMemory, size);
 
 // then, copy in the code and data segments into memory
- /*   if (noffH.code.size > 0) {
+   /* if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 			noffH.code.virtualAddr, noffH.code.size);
         executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
@@ -261,11 +265,6 @@ void AddrSpace::RestoreState()
     machine->pageTableSize = numPages;
 }
 
-TranslationEntry* AddrSpace::getPageTable()
-{
-	return pageTable;
-}
-
 //----------------------------------------------------------------------
 // AddrSpace::AddPages
 // 	When adding a thread to a process
@@ -280,32 +279,31 @@ void AddrSpace::AddPages()
 	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
-		//lock->Acquire("");
+		PTLock->Acquire("");
 		tempTable[i].virtualPage = pageTable[i].virtualPage;	
 		tempTable[i].physicalPage = pageTable[i].physicalPage;
 		tempTable[i].valid = pageTable[i].valid;
 		tempTable[i].use = pageTable[i].use;
 		tempTable[i].dirty = pageTable[i].dirty;
 		tempTable[i].readOnly = pageTable[i].readOnly;
-	//	lock->Release("");
+		PTLock->Release("");
 	}
 
 	delete pageTable;
 	printf("A TWO\n");
-	pageTable = tempTable;
+	machine->pageTable = tempTable;
+	pageTable = machine->pageTable;
 
 	for(unsigned int i = numPages; i < numPages + 8; i++)
 	{
-		//lock->Acquire("");
+		PTLock->Acquire("");
 		pageTable[i].virtualPage = i;
 		pageTable[i].physicalPage = i;
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE; 
-		//lock->Release("");
+		PTLock->Release("");
 	}
 	printf("A THREE\n");
 }
-
-

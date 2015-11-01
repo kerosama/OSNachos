@@ -520,7 +520,6 @@ void makeManager()
 {
 	numManagerThreads++;
 }
->>>>>>> ef657985e7af08ad576ab8a7d2b77e6d9e601c66
 
 void runCustomer(int ssn)
 {
@@ -584,7 +583,6 @@ void createSenator()
 	/*runSenator(numSenatorThreads);*/
 }
 
->>>>>>> ef657985e7af08ad576ab8a7d2b77e6d9e601c66
 void runApplicationClerk(int line)
 {
 	while(true)
@@ -859,7 +857,6 @@ void createCashier()
 }
 
 
->>>>>>> ef657985e7af08ad576ab8a7d2b77e6d9e601c66
 int main()
 {
 	int i = 0;
@@ -892,7 +889,7 @@ int main()
 
 		Fork((void(*)())createApplicationClerk);
 	}
-}
+
 
 	/*Initialize Picture Clerks here*/
 	for (i = 0; i < numPictureClerks; i++)
@@ -939,4 +936,3 @@ int main()
 		/*Fork((void(*)())createSenator);*/
 	}
 }
->>>>>>> ef657985e7af08ad576ab8a7d2b77e6d9e601c66

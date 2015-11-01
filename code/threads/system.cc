@@ -18,6 +18,7 @@ Interrupt *interrupt;			// interrupt status
 Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
+BitMap *mmBitMap;
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -135,6 +136,8 @@ Initialize(int argc, char **argv)
     scheduler = new Scheduler();		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
+	mmBitMap = new BitMap(NumPhysPages);
+	//machine->pageTable = new TranslationEntry[NumPhysPages];
 
     threadToBeDestroyed = NULL;
 

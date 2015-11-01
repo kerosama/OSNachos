@@ -36,8 +36,6 @@ class AddrSpace {
     void RestoreState();		// info on a context switch
     Table fileTable;			// Table of openfiles
 
-	TranslationEntry* getPageTable();
-
 	void AddPages();
 
  private:
@@ -45,6 +43,7 @@ class AddrSpace {
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+	Lock* PTLock;
 };
 
 #endif // ADDRSPACE_H

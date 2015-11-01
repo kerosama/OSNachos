@@ -2032,7 +2032,7 @@ void Problem2(){
      for (int i=0; i<senator_thread_num; i++){
  //        Thread *t = new Thread("senator thread");
  //        t->Fork((VoidFunctionPtr)makeSenator, i+1);
- //    }  //end of creating senator threads
+     }  //end of creating senator threads
 
 	std::cout << "reached.  customer_thread_num: " << customer_thread_num << std::endl; 
 	for(int i = 0; i < customer_thread_num; i++){
