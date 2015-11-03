@@ -75,20 +75,9 @@ class Process
 
 		void addThread(Thread* thread)
 		{
-			/*if (addrSpace == NULL)*/
-				printf("ERROR HERE\n");
-			printf("ERROR2\n");
 			addrSpace->AddPages();
 			threads[num_threads] = thread;
 			num_threads++;
-			/*Table* biggerPT = new Table(8*num_threads*PageSize);
-			for(int i = 0; i < num_threads - 1; i++)
-			{
-				biggerPT->Put(pageTable->Get(i));
-				pageTable->Remove(i);
-			}	
-			delete pageTable;
-			pageTable = biggerPT;*/
 		}
 	
 		AddrSpace* addrSpace;
@@ -101,7 +90,7 @@ class Process
 };
 
 //Private Variables
-AddrSpace *tempAddrSpace;
+//AddrSpace *tempAddrSpace;
 int num_processes_max = 50;
 SpaceId current_process_num = 0;
 Process *processTable[50];
@@ -351,26 +340,25 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
+	printf("inside exec syscall");
+
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
 		printf("Unable to open file %s\n", name);
 		return -1;
 	}
-	/*AddrSpace *space = new AddrSpace(executable);*/
-	tempAddrSpace = new AddrSpace(executable);
+	AddrSpace* addrSpace;
+	
+	//addrSpace->pageTable = &machine->tlb[currentTLB];
+	addrSpace = new AddrSpace(executable);
 
-	//tempAddrSpace->lock = mainLock.lock;
 
 	Thread* t = new Thread("exec thread");
-	t->space = tempAddrSpace;
+	t->space = addrSpace;
+	printf("crap");
 	num_processes++;
 	processTable[current_process_num] = new Process(t);
-	processTable[current_process_num++]->addrSpace = tempAddrSpace;
-	//processTable[current_process_num++]->Start(tempAddrSpace);
-
-	//Process *new_Proc = new Process(t);
-	//processTable[current_process_num++] = new_Proc;
-	//SpaceId sID = 0; /*set to process table id*/
+	processTable[current_process_num++]->addrSpace = addrSpace;
 
 	t->Fork(exec_func, 0);
 	delete executable;
@@ -383,9 +371,8 @@ void kernel_thread(int va) {
 
 void Fork_Syscall(VoidFunctionPtr func)
 {
-	printf("here0\n");
+	printf("inside fork syscall");
 	Thread* kernelThread = new Thread("kernel thread");
-	printf("here1\n");
 	//currentThread->space->InitRegisters();		// set the initial register values
 			// load page table register
 	
@@ -396,8 +383,6 @@ void Fork_Syscall(VoidFunctionPtr func)
 	}
 	processTable[current_process_num]->addrSpace = kernelThread->space;
 	processTable[current_process_num]->addThread(kernelThread);
-	printf("here2\n");
-	printf("here3\n");
 	kernelThread->Fork((VoidFunctionPtr)func, 0);
 }
 
@@ -534,137 +519,144 @@ void handlePageFault()
 	int vaddr = machine->ReadRegister(BadVAddrReg);
 	int vpage = vaddr / PageSize;
 
-	TranslationEntry pageTable = currentThread->space->getPageTable()[vpage];
-
-	machine->tlb[currentTLB].physicalPage = pageTable.physicalPage;
-	machine->tlb[currentTLB].virtualPage = pageTable.virtualPage;
+	machine->tlb[currentTLB].physicalPage = currentThread->space->PageTable[vpage].physicalPage;
+	machine->tlb[currentTLB].virtualPage = vpage;
 	machine->tlb[currentTLB].valid = true;
 	machine->tlb[currentTLB].use = false;
 	machine->tlb[currentTLB].dirty = false;
 	machine->tlb[currentTLB].readOnly = false;
 
-	//printf("PPage: %d\n", pageTable.physicalPage);
+	printf("PPage: %d\n", machine->tlb[currentTLB].physicalPage);
 	//printf("VPage: %d\n", pageTable.virtualPage);
 	currentTLB = (currentTLB + 1) % TLBSize;
-
+	
+	printf("VPage: %d\n", machine->tlb[currentTLB].virtualPage);
 	(void) interrupt->SetLevel(oldLevel);
 
-	printf("VPage: %d\n", pageTable.virtualPage);
 }
 
 void ExceptionHandler(ExceptionType which) {
+    
     int type = machine->ReadRegister(2); // Which syscall?
-    int rv=0; 	// the return value from a syscall
-    if ( which == SyscallException ) {
-	switch (type) {
-	    default:
-		DEBUG('a', "Unknown syscall - shutting down.\n");
-	    case SC_Halt:
-		DEBUG('a', "Shutdown, initiated by user program.\n");
-		interrupt->Halt();
-		break;
-	    case SC_Create:
-		DEBUG('a', "Create syscall.\n");
-		Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
-	    case SC_Open:
-		DEBUG('a', "Open syscall.\n");
-		rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
-	    case SC_Write:
-		DEBUG('a', "Write syscall.\n");
-		Write_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6));
-		break;
-	    case SC_Read:
-		DEBUG('a', "Read syscall.\n");
-		rv = Read_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6));
-		break;
-	    case SC_Close:
-		DEBUG('a', "Close syscall.\n");
-		Close_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Yield:
-		DEBUG('a', "Yield syscall.\n");
-		currentThread->Yield();
-		break;
-		case SC_Exit:
-		DEBUG('a', "Exit syscall.\n");
-		Exit_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Exec:
-		DEBUG('a', "Exec syscall.\n");
-		char* data = new char[machine->ReadRegister(5)];
-		int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
-		rv = Exec_Syscall(data);
-		break;
-		case SC_Fork:
-		DEBUG('a', "Fork syscall.\n");
-		printf("forking\n");
-		Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
-		break;
-		case SC_CreateLock:
-		DEBUG('a', "CreateLock syscall.\n");
-		rv = CreateLock_Syscall();
-		break;
-		case SC_DestroyLock:
-		DEBUG('a', "DestroyLock syscall.\n");
-		DestroyLock_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Acquire:
-		DEBUG('a', "Acquire syscall.\n");
-		Acquire_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Release:
-		DEBUG('a', "Release syscall.\n");
-		Release_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_CreateCondition:
-		DEBUG('a', "CreateCondition syscall.\n");
-		rv = CreateCondition_Syscall();
-		break;
-		case SC_DestroyCondition:
-		DEBUG('a', "DestroyCondition syscall.\n");
-		DestroyCondition_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Signal:
-		DEBUG('a', "Signal syscall.\n");
-		Signal_Syscall(machine->ReadRegister(4), 
-				machine->ReadRegister(5));
-		break;
-		case SC_Wait:
-		DEBUG('a', "Wait syscall.\n");
-		Wait_Syscall(machine->ReadRegister(4), 
-				machine->ReadRegister(5));
-		break;
-		case SC_Broadcast:
-		DEBUG('a', "Broadcast syscall.\n");
-		Broadcast_Syscall(machine->ReadRegister(4),
-				machine->ReadRegister(5));
-		break;
-		case SC_Rand:
-		DEBUG('a', "Rand syscall.\n");
-		rv = Rand_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_IntPrint:
-		DEBUG('a', "IntPrint syscall.\n");
-		IntPrint_Syscall(machine->ReadRegister(4));
-		break;
-	}
+    if ( which == SyscallException ) 
+	{
+		
+		int rv=0; 	// the return value from a syscall
 
-	// Put in the return value and increment the PC
-	machine->WriteRegister(2,rv);
-	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
-	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
-	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
-	return;
-    } else if(which == PageFaultException) {
+		switch (type) 
+		{
+			default:
+			DEBUG('a', "Unknown syscall - shutting down.\n");
+			case SC_Halt:
+			DEBUG('a', "Shutdown, initiated by user program.\n");
+			interrupt->Halt();
+			break;
+			case SC_Create:
+			DEBUG('a', "Create syscall.\n");
+			Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_Open:
+			DEBUG('a', "Open syscall.\n");
+			rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_Write:
+			DEBUG('a', "Write syscall.\n");
+			Write_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6));
+			break;
+			case SC_Read:
+			DEBUG('a', "Read syscall.\n");
+			rv = Read_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6));
+			break;
+			case SC_Close:
+			DEBUG('a', "Close syscall.\n");
+			Close_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Yield:
+			DEBUG('a', "Yield syscall.\n");
+			currentThread->Yield();
+			break;
+			case SC_Exit:
+			DEBUG('a', "Exit syscall.\n");
+			Exit_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Exec:
+			DEBUG('a', "Exec syscall.\n");
+			char* data = new char[machine->ReadRegister(5)];
+			int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
+			rv = Exec_Syscall(data);
+			break;
+			case SC_Fork:
+			DEBUG('a', "Fork syscall.\n");
+			printf("forking\n");
+			Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
+			break;
+			case SC_CreateLock:
+			DEBUG('a', "CreateLock syscall.\n");
+			rv = CreateLock_Syscall();
+			break;
+			case SC_DestroyLock:
+			DEBUG('a', "DestroyLock syscall.\n");
+			DestroyLock_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Acquire:
+			DEBUG('a', "Acquire syscall.\n");
+			Acquire_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Release:
+			DEBUG('a', "Release syscall.\n");
+			Release_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_CreateCondition:
+			DEBUG('a', "CreateCondition syscall.\n");
+			rv = CreateCondition_Syscall();
+			break;
+			case SC_DestroyCondition:
+			DEBUG('a', "DestroyCondition syscall.\n");
+			DestroyCondition_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Signal:
+			DEBUG('a', "Signal syscall.\n");
+			Signal_Syscall(machine->ReadRegister(4), 
+					machine->ReadRegister(5));
+			break;
+			case SC_Wait:
+			DEBUG('a', "Wait syscall.\n");
+			Wait_Syscall(machine->ReadRegister(4), 
+					machine->ReadRegister(5));
+			break;
+			case SC_Broadcast:
+			DEBUG('a', "Broadcast syscall.\n");
+			Broadcast_Syscall(machine->ReadRegister(4),
+					machine->ReadRegister(5));
+			break;
+			case SC_Rand:
+			DEBUG('a', "Rand syscall.\n");
+			rv = Rand_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_IntPrint:
+			DEBUG('a', "IntPrint syscall.\n");
+			IntPrint_Syscall(machine->ReadRegister(4));
+			break;
+		}
+
+		// Put in the return value and increment the PC
+		machine->WriteRegister(2,rv);
+		machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+		machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+		machine->WriteRegister(NextPCReg, machine->ReadRegister(PCReg)+4);
+		return;
+    } 
+	else if(which == PageFaultException) 
+	{
 		handlePageFault();
 		return;
-	} else {
+	} 
+	else 
+	{
       cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<<endl;
       interrupt->Halt();
     }

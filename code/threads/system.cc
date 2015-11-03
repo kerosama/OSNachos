@@ -136,8 +136,7 @@ Initialize(int argc, char **argv)
     scheduler = new Scheduler();		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
-	mmBitMap = new BitMap(NumPhysPages);
-	//machine->pageTable = new TranslationEntry[NumPhysPages];
+	mmBitMap = new BitMap(NumPhysPages);	
 
     threadToBeDestroyed = NULL;
 

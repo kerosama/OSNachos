@@ -38,12 +38,16 @@ class AddrSpace {
 
 	void AddPages();
 
- private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
+	TranslationEntry *PageTable;	// Assume linear page table translation
 					// for now!
+
+ private:
+   
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
 	Lock* PTLock;
+
+	
 };
 
 #endif // ADDRSPACE_H

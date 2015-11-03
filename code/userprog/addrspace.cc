@@ -121,7 +121,6 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 	NoffHeader noffH;
     unsigned int i, size;
 
-	pageTable = machine->pageTable;
 	PTLock = new Lock("Page Table Lock");
     // Don't allocate the input or output to disk files
     fileTable.Put(0);
@@ -140,7 +139,9 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 						// to leave room for the stack
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
+	PageTable = new TranslationEntry[numPages];
+
+   // ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
@@ -148,17 +149,18 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    for (i = 0; i < numPages; i++) 
+   /* for (i = 0; i < numPages; i++) 
 	{
 		PTLock->Acquire("");	
-		printf("balls\n");
-		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+		printf("trying to access pagetable\n");
+		pageTable[i].virtualPage = i;
 	
 
 		int mapping = mmBitMap->Find();
+		printf("%d\n", mapping);
 		if(mapping == -1)
 		{
-			printf("Error: could not find a physical address to map to virtual address.");
+			printf("Error: Unable to find a physical page through bitmap.\n");
 			PTLock->Release("");
 			break;
 		}
@@ -174,8 +176,29 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 						// pages to be read-only
 		executable->ReadAt(&machine->mainMemory[pageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
 		PTLock->Release("");
-    }
-    
+    }*/
+	
+	for(int i =0 ; i < numPages; i++)
+	{
+		PageTable[i].virtualPage = i;
+		/*int mapping = mmBitMap->Find();
+		printf("%d\n", mapping);
+		if(mapping == -1)
+		{
+			printf("Error: Unable to find a physical page through bitmap.\n");
+			PTLock->Release("");
+			break;
+		}*/
+		PageTable[i].physicalPage = i;
+		PageTable[i].valid = TRUE;
+		PageTable[i].dirty = FALSE;
+		PageTable[i].use = FALSE;
+		PageTable[i].readOnly = FALSE;
+		PTLock->Acquire("");
+		executable->ReadAt(&machine->mainMemory[PageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
+		PTLock->Release("");
+	}
+   
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
    // bzero(machine->mainMemory, size);
@@ -205,7 +228,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 
 AddrSpace::~AddrSpace()
 {
-    delete pageTable;
+    delete PageTable;
 }
 
 //----------------------------------------------------------------------
@@ -280,34 +303,38 @@ void AddrSpace::RestoreState()
 void AddrSpace::AddPages()
 {
 	//Add 8 pages to page table
+PTLock->Acquire("");
 	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
-		PTLock->Acquire("");
-		tempTable[i].virtualPage = pageTable[i].virtualPage;	
-		tempTable[i].physicalPage = pageTable[i].physicalPage;
-		tempTable[i].valid = pageTable[i].valid;
-		tempTable[i].use = pageTable[i].use;
-		tempTable[i].dirty = pageTable[i].dirty;
-		tempTable[i].readOnly = pageTable[i].readOnly;
-		PTLock->Release("");
+		
+		tempTable[i].virtualPage = PageTable[i].virtualPage;	
+		tempTable[i].physicalPage = PageTable[i].physicalPage;
+		tempTable[i].valid = PageTable[i].valid;
+		tempTable[i].use = PageTable[i].use;
+		tempTable[i].dirty = PageTable[i].dirty;
+		tempTable[i].readOnly = PageTable[i].readOnly;
+		
 	}
 
-	delete pageTable;
-	printf("A TWO\n");
-	machine->pageTable = tempTable;
-	pageTable = machine->pageTable;
+	delete PageTable;
+	PageTable = tempTable;
 
 	for(unsigned int i = numPages; i < numPages + 8; i++)
 	{
-		PTLock->Acquire("");
-		pageTable[i].virtualPage = i;
-		pageTable[i].physicalPage = i;
-		pageTable[i].valid = TRUE;
-		pageTable[i].use = FALSE;
-		pageTable[i].dirty = FALSE;
-		pageTable[i].readOnly = FALSE; 
-		PTLock->Release("");
+		
+		PageTable[i].virtualPage = i;
+		PageTable[i].physicalPage = i;
+		PageTable[i].valid = TRUE;
+		PageTable[i].use = FALSE;
+		PageTable[i].dirty = FALSE;
+		PageTable[i].readOnly = FALSE; 
+		
 	}
+
+	numPages += 8;
+	PTLock->Release("");
 }
+
+
 

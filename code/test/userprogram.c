@@ -860,11 +860,13 @@ void createCashier()
 int main()
 {
 	int i = 0;
-
+	
+		Write("shit", 5, ConsoleOutput);
 	/*initialize number of created threads*/
 	numCustomerThreads = -1;
 	numApplicationClerkThreads = -1;
 
+	
 	/*Initialize Customers here*/
 	for(i = 0; i < numCustomers; i++)
 	{
@@ -874,7 +876,7 @@ int main()
 		customers[i].pictureTaken = false;
 		customers[i].certified = false;
 		customers[i].bribed = false;
-
+		Write("shit", 5, ConsoleOutput);
 		Fork((void(*)())createCustomer);
 	}
 
