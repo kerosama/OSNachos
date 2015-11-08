@@ -8,6 +8,17 @@
 #include "copyright.h"
 #include "system.h"
 
+IPT::IPT()
+{
+	ipTable = new IPTEntry[NumPhysPages];
+}
+
+
+IPT::~IPT()
+{
+	delete ipTable;
+}
+
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
 
@@ -19,6 +30,12 @@ Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
 BitMap *mmBitMap;
+
+IPT* mIPT;
+OpenFile *swapFile;
+BitMap *swapMap;
+
+
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -137,6 +154,14 @@ Initialize(int argc, char **argv)
     if (randomYield)				// start the timer (if needed)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
 	mmBitMap = new BitMap(NumPhysPages);	
+	mIPT = new IPT();
+	swapFile = fileSystem->Open("../vm/swapfile");
+	if (swapFile == NULL) {
+		printf("Unable to open file %s\n", "swapfile");
+	}
+	
+	swapFile->WriteAt("balls", 100, 0); 
+	swapMap = new BitMap(1024);
 
     threadToBeDestroyed = NULL;
 
@@ -196,4 +221,6 @@ Cleanup()
     
     Exit(0);
 }
+
+
 

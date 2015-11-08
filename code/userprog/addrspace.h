@@ -22,6 +22,19 @@
 #define MaxOpenFiles 256
 #define MaxChildSpaces 256
 
+struct DiskLocation
+{
+	bool swap; //if true, page is in swapfile and no longer in executable
+	int position; //the position of the start of the page in the executable or swapfile
+};
+
+class PTE : public TranslationEntry
+{
+	public:
+		int byteOffset;
+		DiskLocation diskLocation;
+};
+
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,
@@ -38,16 +51,18 @@ class AddrSpace {
 
 	void AddPages();
 
-	TranslationEntry *PageTable;	// Assume linear page table translation
+	PTE *PageTable;	// Assume linear page table translation
 					// for now!
+	
+	OpenFile *spaceExec; //store constructor executable as member variable
 
+	 unsigned int numPages;		// Number of pages in the virtual 
  private:
    
-    unsigned int numPages;		// Number of pages in the virtual 
+   
 					// address space
 	Lock* PTLock;
 
-	
 };
 
 #endif // ADDRSPACE_H

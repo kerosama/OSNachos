@@ -78,6 +78,8 @@ void *Table::Remove(int i) {
     return f;
 }
 
+
+
 //----------------------------------------------------------------------
 // SwapHeader
 // 	Do little endian to big endian conversion on the bytes in the 
@@ -126,7 +128,8 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     fileTable.Put(0);
     fileTable.Put(0);
 
-	
+	spaceExec = executable;
+
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && 
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
@@ -139,7 +142,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 						// to leave room for the stack
     size = numPages * PageSize;
 
-	PageTable = new TranslationEntry[numPages];
+	PageTable = new PTE[numPages];
 
    // ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
@@ -181,22 +184,35 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 	for(int i =0 ; i < numPages; i++)
 	{
 		PageTable[i].virtualPage = i;
-		/*int mapping = mmBitMap->Find();
-		printf("%d\n", mapping);
+		int mapping = mmBitMap->Find();
 		if(mapping == -1)
 		{
 			printf("Error: Unable to find a physical page through bitmap.\n");
 			PTLock->Release("");
 			break;
-		}*/
-		PageTable[i].physicalPage = i;
-		PageTable[i].valid = TRUE;
+		}
+		PageTable[i].physicalPage = mapping;
+		PageTable[i].valid = FALSE;
 		PageTable[i].dirty = FALSE;
 		PageTable[i].use = FALSE;
 		PageTable[i].readOnly = FALSE;
-		PTLock->Acquire("");
-		executable->ReadAt(&machine->mainMemory[PageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
-		PTLock->Release("");
+		
+		//new info for pagetable PTE structure
+		PageTable[i].byteOffset = noffH.code.inFileAddr;
+		PageTable[i].diskLocation.swap = FALSE;
+		PageTable[i].diskLocation.position = PageTable[i].physicalPage*PageSize;
+
+
+		/*mIPT->ipTable[PageTable[i].virtualPage].virtualPage = PageTable[i].virtualPage;
+		mIPT->ipTable[PageTable[i].virtualPage].physicalPage = PageTable[i].physicalPage;
+		mIPT->ipTable[PageTable[i].virtualPage].valid = PageTable[i].valid;
+		mIPT->ipTable[PageTable[i].virtualPage].owner = currentThread->space;*/
+
+		//PTLock->Acquire("");
+		//executable->ReadAt(&machine->mainMemory[PageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);		
+		//PTLock->Release("");
+
+		
 	}
    
 // zero out the entire address space, to zero the unitialized data segment 
@@ -304,7 +320,7 @@ void AddrSpace::AddPages()
 {
 	//Add 8 pages to page table
 PTLock->Acquire("");
-	TranslationEntry* tempTable = new TranslationEntry[numPages + 8];
+	PTE* tempTable = new PTE[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
 		
