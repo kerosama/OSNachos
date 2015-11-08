@@ -16,11 +16,29 @@
 #include "stats.h"
 #include "timer.h"
 #include "../userprog/bitmap.h"
+#include "../userprog/addrspace.h"
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
 extern void Cleanup();				// Cleanup, called when
 						// Nachos is done.
+
+class IPTEntry : public TranslationEntry 
+{
+	 public:
+		AddrSpace* owner;
+};
+
+class IPT
+{
+	public:
+		IPT();
+		~IPT();
+		IPTEntry* ipTable;
+
+};
+
+
 
 extern Thread *currentThread;			// the thread holding the CPU
 extern Thread *threadToBeDestroyed;  		// the thread that just finished
@@ -29,6 +47,9 @@ extern Interrupt *interrupt;			// interrupt status
 extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 extern BitMap *mmBitMap;			//the pagetable bitmap
+extern IPT *mIPT;
+extern OpenFile *swapFile;
+extern BitMap *swapMap;
 
 #ifdef USER_PROGRAM
 #include "machine.h"
@@ -49,5 +70,7 @@ extern SynchDisk   *synchDisk;
 #include "post.h"
 extern PostOffice* postOffice;
 #endif
+
+
 
 #endif // SYSTEM_H
