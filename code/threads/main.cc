@@ -150,10 +150,11 @@ main(int argc, char **argv)
 #ifdef NETWORK
         if (!strcmp(*argv, "-o")) {
 	    ASSERT(argc > 1);
-            Delay(2); 				// delay for 2 seconds
+            Delay(5); 				// delay for 5 seconds
 						// to give the user time to 
-						// start up another nachos
-            MailTest(atoi(*(argv + 1)));
+						// start up another nachos 
+            //MailTest(atoi(*(argv + 1)));
+            MailTest();
             argCount = 2;
         }
 #endif // NETWORK

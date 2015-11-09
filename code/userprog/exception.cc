@@ -34,8 +34,15 @@
 
 using namespace std;
 
+#ifdef NETWORK
+#include "post.h"
+#include "network.h"
 
+PacketHeader clOutPktHdr, clInPktHdr;	
+MailHeader clOutMailHdr, clInMailHdr;
 
+char serverResponse[MaxMailSize];
+char *clRequest;
 
 struct Lock_Struct {
 	Lock* lock;
@@ -314,6 +321,38 @@ void Close_Syscall(int fd) {
     }
 }
 
+#ifdef NETWORK
+
+//MESSAGE SENT FROM CLIENT TO SERVER
+int MsgSentToServer() {
+	clOutPktHdr.to = 0; 
+	clOutPktHdr.from = 1;
+	clOutMailHdr.to = 0;
+    clOutMailHdr.from = 0;
+
+    clOutMailHdr.length = strlen(clRequest) + 1;
+
+	bool success = postOffice -> Send(clOutPktHdr, clOutMailHdr, clRequest);
+	
+    if ( !success ) {
+		printf("The postOfficeClient Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+		interrupt -> Halt();
+		return -1;
+    }
+	else {
+		return 0;
+	}
+}
+
+//MESSAGE RECEIVED BY CLIENT FROM SERVER
+void MsgRcvedFromServer() {
+	printf("\n MESSAGE RECEIVED \n");
+	postOffice->Receive(0, &clInPktHdr, &clInMailHdr, serverResponse);
+	
+    printf("Got \"%s\" from %d, box %d\n",clRequest, clInPktHdr.from, clInMailHdr.from);
+    fflush(stdout);    
+}
+
 void Exit_Syscall(int status) {
 	// If there are other threads, finish the thread, otherwise call halt
 	// and stop the user program.
@@ -386,10 +425,40 @@ void Fork_Syscall(VoidFunctionPtr func)
 
 int CreateLock_Syscall() {
 	//Lock *tempLock = new Lock("temp");
-	char name[5];
+	char name[5]; //LOCK NAME
 	sprintf(name, "%d", current_lock_num);
 	strcat(name, "lock");
-	/*struct Lock_Struct temp;*/
+
+	char buffer[50];
+
+	//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
+	sprintf(buffer, "first%s", name);
+	int length = strlen(buffer);
+	clRrequest = new char[length]; 
+	strcpy(clRequest,buffer); //CREATING CLIENT REQUEST
+	
+	//REQUEST CREATE LOCK TO SERVER
+	int successful = MsgSentToServer(); 
+
+	if(successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");	
+		return -1;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	
+	int requestStatus = atoi (serverResponse);
+	//REQUEST FAILED If -1
+	if(requestStatus == -1){
+		printf("\n FAILURE TO CREATE LOCK\n");
+		return -1;
+	}
+
+	return requestStatus;
+
+
+	/*
 	Lock *temp = new Lock(name);
 	lock_arr[current_lock_num] = temp;
 	lock_in_use[current_lock_num] = false;
@@ -397,7 +466,7 @@ int CreateLock_Syscall() {
 	current_lock_num++;
 	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
 	return (current_lock_num - 1);
-	//return -1;
+	//return -1; */
 }
 
 void DestroyLock_Syscall(int id) {
@@ -498,6 +567,8 @@ void Broadcast_Syscall(int id, int lock_id) {
 	//else
 		cond_arr[id]->Broadcast(lock_arr[lock_id]);
 }
+
+#endif //END #IFDEF NETWORK
 
 int Rand_Syscall(int mod) {
 	srand(time(NULL));

@@ -18,7 +18,7 @@
 #include "copyright.h"
 #include "utility.h"
 
-// Network address -- uniquely identifies a machine.  This machine's ID 
+// Network address -- uniquely identifies a machine. This machine's ID 
 //  is given on the command line.
 typedef int NetworkAddress;	 
 
@@ -66,7 +66,7 @@ class Network {
 				// packet can be sent.  Note that writeHandler 
 				// is called whether or not the packet is 
 				// dropped, and note that the "from" field of 
-				// the PacketHeader is filled in automatically 
+				// the PacketHeader is filled in automatically
 				// by Send().
 
     PacketHeader Receive(char* data);
@@ -77,7 +77,7 @@ class Network {
 				// with length 0.
 
     void SendDone();		// Interrupt handler, called when message is 
-				// sent
+				            // sent
     void CheckPktAvail();	// Check if there is an incoming packet
 
   private:

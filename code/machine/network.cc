@@ -17,9 +17,15 @@ extern "C" {
 
 // Dummy functions because C++ can't call member functions indirectly 
 static void NetworkReadPoll(int arg)
-{ Network *net = (Network *)arg; net->CheckPktAvail(); }
+{ 
+    Network *net = (Network *)arg; 
+    net->CheckPktAvail(); 
+}
 static void NetworkSendDone(int arg)
-{ Network *net = (Network *)arg; net->SendDone(); }
+{ 
+    Network *net = (Network *)arg; 
+    net->SendDone(); 
+}
 
 // Initialize the network emulation
 //   addr is used to generate the socket name
@@ -98,7 +104,7 @@ Network::SendDone()
 
 // send a packet by concatenating hdr and data, and schedule
 // an interrupt to tell the user when the next packet can be sent 
-//
+// 
 // Note we always pad out a packet to MaxWireSize before putting it into
 // the socket, because it's simpler at the receive end.
 bool

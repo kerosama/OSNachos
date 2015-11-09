@@ -103,6 +103,8 @@ Semaphore::V()
 // the test case in the network assignment won't work!
 Lock::Lock(char* debugName) 
 {
+	lockStatus = FREE; //SETTING STATUS OF LOCK
+
 	name = debugName;
 	acquired = false;
 	queue = new List;
@@ -129,6 +131,8 @@ void Lock::Acquire(char* debugName)
 	
 	if(acquired)
 	{			
+		lockStatus = BUSY; //SETTING STATUS OF LOCK
+
 		std::cout << debugName << " waiting to acquire lock " << name << std::endl;
 		queue->Append((void*)currentThread);
 		currentThread->Sleep();	
@@ -177,6 +181,8 @@ void Lock::Release(char* debugName)
 	{
 		acquired = false;
 		owner = NULL;
+
+		lockStatus = FREE; //SETTING STATUS OF LOCK
 	}
 	(void) interrupt->SetLevel(oldLevel);
 }
