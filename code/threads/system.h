@@ -17,6 +17,7 @@
 #include "timer.h"
 #include "../userprog/bitmap.h"
 #include "../userprog/addrspace.h"
+#include "synch.h"
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
@@ -50,6 +51,7 @@ extern BitMap *mmBitMap;			//the pagetable bitmap
 extern IPT *mIPT;
 extern OpenFile *swapFile;
 extern BitMap *swapMap;
+extern Lock *memoryLock;
 
 #ifdef USER_PROGRAM
 #include "machine.h"

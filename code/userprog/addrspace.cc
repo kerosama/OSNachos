@@ -184,23 +184,23 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 	for(int i =0 ; i < numPages; i++)
 	{
 		PageTable[i].virtualPage = i;
-		int mapping = mmBitMap->Find();
+		/*int mapping = mmBitMap->Find();
 		if(mapping == -1)
 		{
 			printf("Error: Unable to find a physical page through bitmap.\n");
 			PTLock->Release("");
 			break;
-		}
-		PageTable[i].physicalPage = mapping;
+		}*/
+		PageTable[i].physicalPage = -1;// mapping;
 		PageTable[i].valid = FALSE;
 		PageTable[i].dirty = FALSE;
-		PageTable[i].use = FALSE;
+		PageTable[i].use = TRUE;
 		PageTable[i].readOnly = FALSE;
 		
 		//new info for pagetable PTE structure
 		PageTable[i].byteOffset = noffH.code.inFileAddr;
 		PageTable[i].diskLocation.swap = FALSE;
-		PageTable[i].diskLocation.position = PageTable[i].physicalPage*PageSize;
+		PageTable[i].diskLocation.position = PageTable[i].virtualPage*PageSize;
 
 
 		/*mIPT->ipTable[PageTable[i].virtualPage].virtualPage = PageTable[i].virtualPage;
@@ -303,7 +303,19 @@ void AddrSpace::SaveState()
 void AddrSpace::RestoreState() 
 {
 	for (int a = 0; a < TLBSize; a++)
+	{
 		machine->tlb[a].valid = false;
+		if(machine->tlb[a].dirty == true)
+		{
+			for(int i = 0; i < numPages; i++)
+			{
+				if(i == PageTable[i].physicalPage)
+				{
+					mIPT->ipTable[i].dirty = true;
+				}
+			}
+		}
+	}
 
     //machine->pageTable = pageTable;
     //machine->pageTableSize = numPages;
@@ -319,6 +331,8 @@ void AddrSpace::RestoreState()
 void AddrSpace::AddPages()
 {
 	//Add 8 pages to page table
+
+	printf("stuff");
 PTLock->Acquire("");
 	PTE* tempTable = new PTE[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)

@@ -34,7 +34,7 @@ BitMap *mmBitMap;
 IPT* mIPT;
 OpenFile *swapFile;
 BitMap *swapMap;
-
+Lock *memoryLock;
 
 
 #ifdef FILESYS_NEEDED
@@ -160,8 +160,9 @@ Initialize(int argc, char **argv)
 		printf("Unable to open file %s\n", "swapfile");
 	}
 	
-	swapFile->WriteAt("balls", 100, 0); 
-	swapMap = new BitMap(1024);
+	//swapFile->WriteAt("balls", 100, 0); 
+	swapMap = new BitMap(50000);
+	memoryLock = new Lock("Memory Lock");
 
     threadToBeDestroyed = NULL;
 
