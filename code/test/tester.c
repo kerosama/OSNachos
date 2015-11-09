@@ -70,7 +70,6 @@ void test1()
   /*Acquire(id3);*/
   Release(id3);
   DestroyLock(id3);
- /* Write("HERE.\n", 6, ConsoleOutput);*/
   /*not reached*/
   /*Write("\nThis is not reached.", 21, ConsoleOutput);*/
 }
@@ -103,9 +102,9 @@ void test3_t2(){
 
 void test3(){
   Write("Test3.\n", 8, ConsoleOutput);
-  /*Exec("../test/sort", 12);*/
-  Fork(test3_t1);
-  Fork(test3_t2);
+  Exec("../test/matmult", 40);
+  Fork("../test/matmult");
+ /* Fork(test3_t2);*/
  /* Wait(conditionID, lockID);*/
   /*Broadcast(conditionID, lockID);*/
 }

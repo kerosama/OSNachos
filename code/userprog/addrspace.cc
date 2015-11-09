@@ -129,7 +129,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     fileTable.Put(0);
 
 	spaceExec = executable;
-
+	//printf("creating new addrSpace");
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && 
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
@@ -331,9 +331,9 @@ void AddrSpace::RestoreState()
 void AddrSpace::AddPages()
 {
 	//Add 8 pages to page table
-
-	printf("stuff");
-PTLock->Acquire("");
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	//printf("\nstuff\n");
+	//PTLock->Acquire("");
 	PTE* tempTable = new PTE[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
@@ -344,7 +344,11 @@ PTLock->Acquire("");
 		tempTable[i].use = PageTable[i].use;
 		tempTable[i].dirty = PageTable[i].dirty;
 		tempTable[i].readOnly = PageTable[i].readOnly;
-		
+
+		//copy new values for PTE structure
+		tempTable[i].byteOffset = PageTable[i].byteOffset;
+		tempTable[i].diskLocation.swap = PageTable[i].diskLocation.swap;
+		tempTable[i].diskLocation.position = PageTable[i].diskLocation.position;
 	}
 
 	delete PageTable;
@@ -354,16 +358,21 @@ PTLock->Acquire("");
 	{
 		
 		PageTable[i].virtualPage = i;
-		PageTable[i].physicalPage = i;
-		PageTable[i].valid = TRUE;
-		PageTable[i].use = FALSE;
+		PageTable[i].physicalPage = -1;
+		PageTable[i].valid = FALSE;
+		PageTable[i].use = TRUE;
 		PageTable[i].dirty = FALSE;
 		PageTable[i].readOnly = FALSE; 
-		
+
+		//new values for pagetable PTE structure
+		PageTable[i].byteOffset = PageTable[0].byteOffset;
+		PageTable[i].diskLocation.swap = FALSE;
+		PageTable[i].diskLocation.position = PageTable[i].virtualPage*PageSize;
 	}
 
 	numPages += 8;
-	PTLock->Release("");
+	(void) interrupt->SetLevel(oldLevel);
+	//PTLock->Release("");
 }
 
 

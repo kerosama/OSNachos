@@ -43,7 +43,7 @@ MailHeader clOutMailHdr, clInMailHdr;
 
 char serverResponse[MaxMailSize];
 char *clRequest;
-
+#endif
 struct Lock_Struct {
 	Lock* lock;
 };
@@ -55,30 +55,18 @@ int num_processes;
 class Process
 {
 	public:
-		Process(Thread* thread)
+		Process(Thread* thread, AddrSpace* space)
 		{
-			id = num_processes + 1;
+			id = num_processes;
 			num_processes++;
 			
 			threads[0] = thread;
+			num_threads = 1;
+			addrSpace = space;
+			thread->space = space;
 		}			
 
 		~Process(){}
-
-		void Start(AddrSpace* as)
-		{
-			addrSpace = as;
-		}
-
-		int getID()
-		{
-			return id;
-		}
-
-		AddrSpace* getAddrSpace()
-		{
-			return addrSpace;
-		}
 
 		void addThread(Thread* thread)
 		{
@@ -352,12 +340,14 @@ void MsgRcvedFromServer() {
     printf("Got \"%s\" from %d, box %d\n",clRequest, clInPktHdr.from, clInMailHdr.from);
     fflush(stdout);    
 }
+#endif
 
 void Exit_Syscall(int status) {
 	// If there are other threads, finish the thread, otherwise call halt
 	// and stop the user program.
+	printf("num_thr: %d\n", num_thr);
 	printf("Output: %d\n", status);
-	if (num_thr > 1) {
+	if (num_thr > 0) {
 		num_thr--;
 		currentThread->Finish();
 	}
@@ -365,8 +355,8 @@ void Exit_Syscall(int status) {
 		interrupt->Halt();
 }
 
-void exec_func(int arg) {
-	printf("running thread - exec.");
+void exec_thread(int arg) {
+	//printf("running thread - exec.\n");
 
 	currentThread->space->InitRegisters();		// set the initial register values
 	currentThread->space->RestoreState();		// load page table register
@@ -378,7 +368,7 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
-	printf("inside exec syscall");
+	printf("inside exec syscall\n");
 
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
@@ -386,41 +376,53 @@ SpaceId Exec_Syscall(char *name) {
 		return -1;
 	}
 	
-	//addrSpace->pageTable = &machine->tlb[currentTLB];
-	AddrSpace* addrSpace = new AddrSpace(executable);
+	AddrSpace* space = new AddrSpace(executable);
 
 
 	Thread* t = new Thread("exec thread");
-	t->space = addrSpace;
-	printf("crap");
-	num_processes++;
-	processTable[current_process_num] = new Process(t);
-	processTable[current_process_num++]->addrSpace = addrSpace;
+	num_thr++;
+	Process* p = new Process(t, space);
+	processTable[num_processes] = p;
+	//printf("num processes: %d\n", num_processes);
+	t->Fork(exec_thread, 0);
 
-	t->Fork(exec_func, 0);
-	delete executable;
-	return current_process_num - 1;
+	printf("finished exec syscall\n");
+	return num_processes - 1;
 }
 
-void kernel_thread(int va) {
-
+void kernel_thread(int va)
+{
+	machine->WriteRegister(PCReg, va);
+	machine->WriteRegister(NextPCReg, va + 4);
+	currentThread->space->RestoreState();
+	printf("%d\n", currentThread->space->numPages);
+	machine->WriteRegister(StackReg, currentThread->space->numPages * PageSize - 16);
+	machine->Run();
 }
 
 void Fork_Syscall(VoidFunctionPtr func)
 {
-	printf("inside fork syscall");
-	Thread* kernelThread = new Thread("kernel thread");
-	//currentThread->space->InitRegisters();		// set the initial register values
-			// load page table register
+	printf("inside fork syscall\n");
+	Thread* kernelThread = new Thread("kernel thread");	
+	num_thr++;	
 	
 	kernelThread->space = currentThread->space;
 	if(processTable[current_process_num] == NULL)
 	{
-		processTable[current_process_num] = new Process(currentThread);
+		processTable[current_process_num] = new Process(currentThread, currentThread->space);
+		
 	}
-	processTable[current_process_num]->addrSpace = kernelThread->space;
+	printf("%d-", currentThread->space->numPages);
 	processTable[current_process_num]->addThread(kernelThread);
-	kernelThread->Fork((VoidFunctionPtr)func, 0);
+	printf("%d\n", currentThread->space->numPages);
+	//printf("%d %d", (int)*func, machine->ReadRegister(4));
+	kernel_thread((int)*func);
+	//kernel_thread(kernelThread->space->numPages - 8);
+	printf("finished fork syscall\n");
+
+	kernelThread->Fork(func, 1);
+
+
 }
 
 int CreateLock_Syscall() {
@@ -434,9 +436,10 @@ int CreateLock_Syscall() {
 	//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
 	sprintf(buffer, "first%s", name);
 	int length = strlen(buffer);
+#ifdef NETWORK
 	clRrequest = new char[length]; 
 	strcpy(clRequest,buffer); //CREATING CLIENT REQUEST
-	
+
 	//REQUEST CREATE LOCK TO SERVER
 	int successful = MsgSentToServer(); 
 
@@ -444,10 +447,9 @@ int CreateLock_Syscall() {
 		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");	
 		return -1;
 	}
-
 	//WAIT FOR RESPONSE	
 	MsgRcvedFromServer();
-	
+
 	int requestStatus = atoi (serverResponse);
 	//REQUEST FAILED If -1
 	if(requestStatus == -1){
@@ -457,8 +459,8 @@ int CreateLock_Syscall() {
 
 	return requestStatus;
 
-
-	/*
+#else
+	
 	Lock *temp = new Lock(name);
 	lock_arr[current_lock_num] = temp;
 	lock_in_use[current_lock_num] = false;
@@ -466,7 +468,8 @@ int CreateLock_Syscall() {
 	current_lock_num++;
 	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
 	return (current_lock_num - 1);
-	//return -1; */
+	//return -1;
+#endif
 }
 
 void DestroyLock_Syscall(int id) {
@@ -568,7 +571,7 @@ void Broadcast_Syscall(int id, int lock_id) {
 		cond_arr[id]->Broadcast(lock_arr[lock_id]);
 }
 
-#endif //END #IFDEF NETWORK
+//#endif //END #IFDEF NETWORK
 
 int Rand_Syscall(int mod) {
 	srand(time(NULL));
@@ -593,14 +596,15 @@ void WriteToSwap(int epn)
 				printf("Error: swapfile full\n");
 				return;
 			}
-			//memoryLock->Acquire("");
-
+			
+			memoryLock->Acquire("");
 			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage*PageSize/* + mIPT->ipTable[evictedPage].owner->PageTable[j].byteOffset*/);
-						
+			memoryLock->Release("");	
+
 			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.swap = TRUE;
 			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.position = swapPage*PageSize;
-			//memoryLock->Release("");
-			printf("added to swapfile\n");
+			
+			//printf("added to swapfile\n");
 			break;
 		}
 	}	
@@ -646,7 +650,7 @@ int handleIPTMiss(int neededVPN)
 	int ppn = mmBitMap->Find();
 	if(ppn == -1)
 	{
-		printf("out of memory\n");
+		//printf("out of memory\n");
 		ppn = handleMemoryFull(neededVPN);
 	}
 
@@ -671,19 +675,19 @@ int handleIPTMiss(int neededVPN)
 			//currentThread->space->PageTable[j].diskLocation.position = neededVPN*PageSize;
 			if(currentThread->space->PageTable[j].diskLocation.swap)
 			{
-				//memoryLock->Acquire("");
+				memoryLock->Acquire("");
 				swapFile->ReadAt(&machine->mainMemory[ppn*PageSize], 
 					PageSize, currentThread->space->PageTable[j].diskLocation.position);
-				printf("Reading from swapfile to main memory...\n");
-				//memoryLock->Release("");
+				//printf("Reading from swapfile to main memory...\n");
+				memoryLock->Release("");
 			}
 			else
 			{
-				//memoryLock->Acquire("");
+				memoryLock->Acquire("");
 				currentThread->space->spaceExec->ReadAt(&machine->mainMemory[ppn*PageSize], 
 					PageSize, neededVPN*PageSize + currentThread->space->PageTable[j].byteOffset);
-				printf("Reading from executable to main memory...\n");
-				//memoryLock->Release("");
+				//printf("Reading from executable to main memory...\n");
+				memoryLock->Release("");
 			}
 			currentThread->space->PageTable[j].physicalPage = ppn;
 			currentThread->space->PageTable[j].valid = true;
@@ -696,9 +700,6 @@ int handleIPTMiss(int neededVPN)
 			break;
 		}
 	}
-
-	
-	//currentThread->space->spaceExec->ReadAt(&machine->mainMemory[ppn*PageSize], PageSize, ppn*PageSize);	
 	
 
 	return ppn;
@@ -714,7 +715,7 @@ void handlePageFault()
 	    
 		int neededVA = machine->ReadRegister(BadVAddrReg);
 		int neededVPN = neededVA / PageSize;
-		printf("VPage: %d - ", neededVPN);
+		//printf("VPage: %d - ", neededVPN);
 		/*for(int i = 0; i < TLBSize; i++)
 		{
 			if(machine->tlb[i].virtualPage == neededVPN)
@@ -733,7 +734,7 @@ void handlePageFault()
 			{
 				//IPT hit
 				//wanted physical page is IPT index number
-				printf("IPT hit!\n");
+				//printf("IPT hit!\n");
 				ppn = i;
 				break;
 			}
@@ -743,13 +744,14 @@ void handlePageFault()
 		{
 			//IPT miss
 			//check swap file and executable
-			printf("IPT miss\n");
+			//printf("IPT miss\n");
 			ppn = handleIPTMiss(neededVPN);
 		}
 		
 		if(ppn != -1)
 		{
 			//Ultimately, update TLB
+			//printf("current TLB: %d\n", currentTLB);
 			machine->tlb[currentTLB].physicalPage = ppn;
 			machine->tlb[currentTLB].virtualPage = neededVPN;
 			machine->tlb[currentTLB].valid = true;
@@ -762,26 +764,7 @@ void handlePageFault()
 			printf("Error: could not provide physical page to TLB");
 		}
 
-		
-	
-		
-	
-
-	
-
-	/*machine->tlb[currentTLB].physicalPage = machine->mainMemory[vpage*PageSize];
-	machine->tlb[currentTLB].virtualPage = vpage;
-	machine->tlb[currentTLB].valid = true;
-	machine->tlb[currentTLB].use = false;
-	machine->tlb[currentTLB].dirty = false;
-	machine->tlb[currentTLB].readOnly = false;*/
-
-	
-	//printf("VPage: %d\n", pageTable.virtualPage);
 	currentTLB = (currentTLB + 1) % TLBSize;
-	
-	
-
 
 	(void) interrupt->SetLevel(oldLevel);
 
@@ -843,7 +826,7 @@ void ExceptionHandler(ExceptionType which) {
 			break;
 			case SC_Fork:
 			DEBUG('a', "Fork syscall.\n");
-			printf("forking\n");
+			//printf("forking\n");
 			Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
 			break;
 			case SC_CreateLock:
