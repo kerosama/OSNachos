@@ -63,6 +63,8 @@ class Semaphore {
 // may release it.  As with semaphores, you can't read the lock value
 // (because the value might change immediately after you read it).  
 
+enum LockStatus { FREE, BUSY };
+
 class Lock {
   public:
     Lock(char* debugName);  		// initialize lock to be FREE
@@ -84,6 +86,7 @@ class Lock {
 	List* queue;
     // plus some other stuff you'll need to define
 	int lockvar;
+	LockStatus lockStatus;
 };
 
 // The following class defines a "condition variable".  A condition

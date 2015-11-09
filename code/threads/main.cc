@@ -62,7 +62,8 @@
 extern void TestSuite(void), Problem2(void), ThreadTest(void), Copy(char *unixFile, char *nachosFile);
 extern void Print(char *file), PerformanceTest(void);
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
-extern void MailTest(int networkID);
+//extern void MailTest(int networkID);
+extern void MailTest(void), doServer(void);
 
 //----------------------------------------------------------------------
 // main
@@ -104,7 +105,21 @@ main(int argc, char **argv)
 #endif //THREADS
 
 	
+#ifdef VM
+		if (!strcmp(*argv, "-P"))
+		{
+			if (argc > 1)
+			{
+				if (!strcmp(*(argv + 1), "FIFO")){}
+				else if (!strcmp(*(argv + 1), "RAND")){}
+				else{}
+			}
+			else
+			{
 
+			}
+		}
+#endif
 	
 
     
@@ -157,6 +172,13 @@ main(int argc, char **argv)
             MailTest();
             argCount = 2;
         }
+		else if (!strcmp(*argv, "-server")) {
+			doServer();
+		}
+		else if (!strcmp(*argv, "-client")){
+			printf("?\n");
+			StartProcess("../test/tester");
+		}
 #endif // NETWORK
     }
 

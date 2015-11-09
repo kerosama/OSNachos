@@ -21,6 +21,8 @@
 // All rights reserved.  See copyright.h for copyright notice and limitation 
 // of liability and disclaimer of warranty provisions.
 
+#include <sstream>
+
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
@@ -43,6 +45,7 @@ MailHeader clOutMailHdr, clInMailHdr;
 
 char serverResponse[MaxMailSize];
 char *clRequest;
+#endif
 
 struct Lock_Struct {
 	Lock* lock;
@@ -115,6 +118,7 @@ bool cond_in_use[100];
 bool should_delete_cond[100]; //Think this needs to be implemented to delete lock if currently being used
 int current_cond_num = 0;
 
+int current_monitor_num = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -321,38 +325,6 @@ void Close_Syscall(int fd) {
     }
 }
 
-#ifdef NETWORK
-
-//MESSAGE SENT FROM CLIENT TO SERVER
-int MsgSentToServer() {
-	clOutPktHdr.to = 0; 
-	clOutPktHdr.from = 1;
-	clOutMailHdr.to = 0;
-    clOutMailHdr.from = 0;
-
-    clOutMailHdr.length = strlen(clRequest) + 1;
-
-	bool success = postOffice -> Send(clOutPktHdr, clOutMailHdr, clRequest);
-	
-    if ( !success ) {
-		printf("The postOfficeClient Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-		interrupt -> Halt();
-		return -1;
-    }
-	else {
-		return 0;
-	}
-}
-
-//MESSAGE RECEIVED BY CLIENT FROM SERVER
-void MsgRcvedFromServer() {
-	printf("\n MESSAGE RECEIVED \n");
-	postOffice->Receive(0, &clInPktHdr, &clInMailHdr, serverResponse);
-	
-    printf("Got \"%s\" from %d, box %d\n",clRequest, clInPktHdr.from, clInMailHdr.from);
-    fflush(stdout);    
-}
-
 void Exit_Syscall(int status) {
 	// If there are other threads, finish the thread, otherwise call halt
 	// and stop the user program.
@@ -385,7 +357,7 @@ SpaceId Exec_Syscall(char *name) {
 		printf("Unable to open file %s\n", name);
 		return -1;
 	}
-	
+
 	//addrSpace->pageTable = &machine->tlb[currentTLB];
 	AddrSpace* addrSpace = new AddrSpace(executable);
 
@@ -411,10 +383,10 @@ void Fork_Syscall(VoidFunctionPtr func)
 	printf("inside fork syscall");
 	Thread* kernelThread = new Thread("kernel thread");
 	//currentThread->space->InitRegisters();		// set the initial register values
-			// load page table register
-	
+	// load page table register
+
 	kernelThread->space = currentThread->space;
-	if(processTable[current_process_num] == NULL)
+	if (processTable[current_process_num] == NULL)
 	{
 		processTable[current_process_num] = new Process(currentThread);
 	}
@@ -423,39 +395,87 @@ void Fork_Syscall(VoidFunctionPtr func)
 	kernelThread->Fork((VoidFunctionPtr)func, 0);
 }
 
-int CreateLock_Syscall() {
-	//Lock *tempLock = new Lock("temp");
-	char name[5]; //LOCK NAME
-	sprintf(name, "%d", current_lock_num);
-	strcat(name, "lock");
 
+#ifdef NETWORK
+
+int MsgSentToServer() {
+	clOutPktHdr.to = 0;
+	clOutPktHdr.from = net_name;
+	clOutMailHdr.to = 0;
+	clOutMailHdr.from = net_name;
+
+	clOutMailHdr.length = strlen(clRequest) + 1;
+
+	bool success = postOffice->Send(clOutPktHdr, clOutMailHdr, clRequest);
+
+	if (!success) {
+		printf("The postOfficeClient Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+		interrupt->Halt();
+		return -1;
+	}
+	else {
+		printf("Msg Sent!");
+		return 0;
+	}
+}
+
+//MESSAGE RECEIVED BY CLIENT FROM SERVER
+void MsgRcvedFromServer() {
+	printf("\n MESSAGE RECEIVED \n");
+	postOffice->Receive(net_name, &clInPktHdr, &clInMailHdr, serverResponse);
+
+	printf("Got \"%s\" from %d, box %d\n", clRequest, clInPktHdr.from, clInMailHdr.from);
+	fflush(stdout);
+}
+
+
+void CreateMessage(char* request, char* name)
+{
 	char buffer[50];
 
 	//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
-	sprintf(buffer, "first%s", name);
+	sprintf(buffer, "%s %s", request, name);
 	int length = strlen(buffer);
-	clRrequest = new char[length]; 
-	strcpy(clRequest,buffer); //CREATING CLIENT REQUEST
-	
-	//REQUEST CREATE LOCK TO SERVER
-	int successful = MsgSentToServer(); 
+	clRequest = new char[length];
+	strcpy(clRequest, buffer); //CREATING CLIENT REQUEST
+}
 
-	if(successful == -1){
-		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");	
+int CreateLock_Syscall() {
+	printf("Syscall in Exception.cc - Creating Lock\n");
+	char name[2];
+	sprintf(name, "%d", current_lock_num++);
+
+	CreateMessage("CreateLock", name);
+
+	//REQUEST CREATE LOCK TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return -1;
 	}
 
 	//WAIT FOR RESPONSE	
 	MsgRcvedFromServer();
-	
-	int requestStatus = atoi (serverResponse);
-	//REQUEST FAILED If -1
-	if(requestStatus == -1){
-		printf("\n FAILURE TO CREATE LOCK\n");
-		return -1;
-	}
 
-	return requestStatus;
+	printf("CreateLock-Received Msg: %s\n", serverResponse);
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+
+	if (atoi(temp.c_str()) < 0)
+		printf("Server out of locks.\n");
+
+	//int requestStatus = atoi (serverResponse);
+	//REQUEST FAILED If -1
+	/*if(requestStatus == -1){
+	printf("\n FAILURE TO CREATE LOCK\n");
+	return -1;
+	}*/
+
+	return atoi(temp.c_str());
+	//return requestStatus;
 
 
 	/*
@@ -464,108 +484,425 @@ int CreateLock_Syscall() {
 	lock_in_use[current_lock_num] = false;
 	should_delete_lock[current_lock_num] = false;
 	current_lock_num++;
-	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
-	return (current_lock_num - 1);
-	//return -1; */
+	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());*/
+	//return (current_lock_num - 1);
 }
 
 void DestroyLock_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Destroy Lock Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Destroying Lock\n");
+	char name[2]; //LOCK NAME
+	sprintf(name, "%d", id);
+	CreateMessage("DestroyLock", name);
+
+	//REQUEST DESTROY LOCK TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
 	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("DestroyLock-Received Msg: %s\n", serverResponse);
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Destroy Lock Syscall - id does not exist.\n");
+
+	/*if (id > current_lock_num || id < 0) {
+	printf("Error: Destroy Lock Syscall - id does not exist.\n");
+	return;
+	}
 	if (lock_in_use[id])
-		should_delete_lock[id] = true;
+	should_delete_lock[id] = true;
 	else
-		delete lock_arr[id];
+	delete lock_arr[id];*/
 }
 
 void Acquire_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Acquire Lock Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Acquiring Lock\n");
+	char name[2];
+	sprintf(name, "%d", id);
+	CreateMessage("AcquireLock", name);
+
+	//REQUEST ACQUIRE LOCK TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
 	}
-	/*if (should_delete_lock[id])
-		delete lock_arr[id];
-	else {*/
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+
+	printf("AcquireLock-Received Msg: %s\n", serverResponse);
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Acquire Lock Syscall - id does not exist.\n");
+	/*if (id > current_lock_num || id < 0) {
+	printf("Error: Acquire Lock Syscall - id does not exist.\n");
+	return;
+	}
 	lock_arr[id]->Acquire("except");
 	lock_in_use[id] = true;
 	/*}*/
 }
 
 void Release_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Release Lock Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Acquiring Lock\n");
+	char name[2];
+	sprintf(name, "%d", id);
+	CreateMessage("ReleaseLock", name);
+
+	//REQUEST RELEASE LOCK TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+
+	printf("ReleaseLock-Received Msg: %s\n", serverResponse);
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Release Lock Syscall - id does not exist.\n");
+	/*if (id > current_lock_num || id < 0) {
+	printf("Error: Release Lock Syscall - id does not exist.\n");
+	return;
 	}
 	lock_in_use[id] = false;
 	lock_arr[id]->Release("except");
 	printf("2\n");
 	if (should_delete_lock[id])
-		delete lock_arr[id];
+	delete lock_arr[id];*/
 }
 
 int CreateCondition_Syscall() {
-	Condition *tempCond = new Condition("temp");
+	printf("Syscall in Exception.cc - Creating CV\n");
+	char name[2];
+	sprintf(name, "%d", current_cond_num++);
+
+	CreateMessage("CreateCV", name);
+
+	//REQUEST CREATE CV TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("CreateCV-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Server out of CVs.\n");
+
+	return atoi(temp.c_str());
+
+	//int requestStatus = atoi (serverResponse);
+	//REQUEST FAILED If -1
+	/*if(requestStatus == -1){
+	printf("\n FAILURE TO CREATE LOCK\n");
+	return -1;
+	}*/
+
+
+
+	/*Condition *tempCond = new Condition("temp");
 	cond_arr[current_cond_num++] = tempCond;
-	return current_cond_num - 1;
-	//return -1;
+	return current_cond_num - 1;*/
 }
 
 void DestroyCondition_Syscall(int id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Destroy Condition Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Destroying CV\n");
+	char name[2];
+	sprintf(name, "%d", id);
+	CreateMessage("DestroyCV", name);
+
+	//REQUEST DESTROY CV TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
 	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("DestroyCV-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Destroy Condition Syscall - id does not exist.\n");
+	/*if (id > current_cond_num || id < 0) {
+	printf("Error: Destroy Condition Syscall - id does not exist.\n");
+	return;
+	}
 	//if (cond_in_use[id])
-		//should_delete_cond[id] = true;
+	//should_delete_cond[id] = true;
 	//else
-		delete cond_arr[id];
+	delete cond_arr[id];*/
 }
 
 void Signal_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Signal Condition Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Signalling CV\n");
+	char ids[5];
+	sprintf(ids, "%d %d", id, lock_id);
+	CreateMessage("SignalCV", ids);
+
+	//REQUEST SIGNAL TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("Signal-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Signal Condition Syscall - id or lock id does not exist.\n");
+	/*if (id > current_cond_num || id < 0) {
+	printf("Error: Signal Condition Syscall - id does not exist.\n");
+	return;
 	}
 	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
-		return;
+	printf("Error: Signal Condition Syscall - lock id does not exist.\n");
+	return;
 	}
 	//if (should_delete_cond[id])
-		//delete cond_arr[id];
+	//delete cond_arr[id];
 	//else
-		cond_arr[id]->Signal("", lock_arr[lock_id]);
+	cond_arr[id]->Signal("", lock_arr[lock_id]);*/
 }
 
 void Wait_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Wait Condition Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Waiting CV\n");
+	char ids[5]; //LOCK NAME
+	sprintf(ids, "%d %d", id, lock_id);
+	CreateMessage("WaitCV", ids);
+
+	//REQUEST WAIT TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("Wait-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Wait Condition Syscall - id or lock id does not exist.\n");
+	/*if (id > current_cond_num || id < 0) {
+	printf("Error: Wait Condition Syscall - id does not exist.\n");
+	return;
 	}
 	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
-		return;
+	printf("Error: Wait Condition Syscall - lock id does not exist.\n");
+	return;
 	}
 	//if (should_delete_cond[id])
-		//delete cond_arr[id];
+	//delete cond_arr[id];
 	//else
-		cond_arr[id]->Wait("", lock_arr[lock_id]);
+	cond_arr[id]->Wait("", lock_arr[lock_id]);*/
 }
 
 void Broadcast_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Broadcast Condition Syscall - id does not exist.\n");
+	printf("Syscall in Exception.cc - Broadcast CV\n");
+	char ids[5];
+	sprintf(ids, "%d %d", id, lock_id);
+	CreateMessage("BroadcastCV", ids);
+
+	//REQUEST BROADCAST TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("Broadcast-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Error: Broadcast Condition Syscall - id or lock id does not exist.\n");
+	/*if (id > current_cond_num || id < 0) {
+	printf("Error: Broadcast Condition Syscall - id does not exist.\n");
+	return;
 	}
 	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
-		return;
+	printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
+	return;
 	}
 	//if (should_delete_cond[id])
-		//delete cond_arr[id];
+	//delete cond_arr[id];
 	//else
-		cond_arr[id]->Broadcast(lock_arr[lock_id]);
+	cond_arr[id]->Broadcast(lock_arr[lock_id]);*/
+}
+
+// Creates a new monitor (sent to server)
+// returns the index (id) of the monitor
+int CreateMonitor_Syscall()
+{
+	printf("Syscall in Exception.cc - Creating Monitor\n");
+	//Lock *tempLock = new Lock("temp");
+	char name[2]; //LOCK NAME
+	sprintf(name, "%d", current_monitor_num++);
+	//strcat(name, " lock");
+
+	CreateMessage("CreateMonitor", name);
+
+	//REQUEST CREATE MONITOR TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("CreateMonitor-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Server out of Monitors.\n");
+
+	return atoi(temp.c_str());
+}
+
+// Destroys a monitor at the specified id
+void DestroyMonitor_Syscall(int id)
+{
+	printf("Syscall in Exception.cc - Destroying Monitor\n");
+	char name[2];
+	sprintf(name, "%d", id);
+
+	CreateMessage("DestroyMonitor", name);
+
+	//REQUEST DESTROY MONITOR TO SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("DestroyMonitor-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Monitor does not exist on Server.\n");
+}
+
+// Gets the variable from monitor id
+// returns the value of the monitor
+int GetMonitorVal_Syscall(int id)
+{
+	printf("Syscall in Exception.cc - Getting Monitor Value\n");
+	char name[2];
+	sprintf(name, "%d", id);
+
+	CreateMessage("GetMonitorVal", name);
+
+	//REQUEST GET MONITOR VAL FROM SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("GetMonitorVal-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Monitor does not exist on Server.\n");
+
+	return atoi(temp.c_str());
+}
+
+// Sets the monitor variable to val at monitor id
+void SetMonitorVal_Syscall(int id, int val)
+{
+	printf("Syscall in Exception.cc - Setting Monitor Value\n");
+	char name[5];
+	sprintf(name, "%d %d", id, val);
+
+	CreateMessage("SetMonitorVal", name);
+
+	//REQUEST SET MONITOR VALUE ON SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("SetMonitorVal-Received Msg: %s\n", serverResponse);
+
+	string temp;
+	stringstream ss;
+	ss << serverResponse;
+	ss >> temp;
+	if (atoi(temp.c_str()) < 0)
+		printf("Monitor does not exist on Server.\n");
 }
 
 #endif //END #IFDEF NETWORK
@@ -846,6 +1183,7 @@ void ExceptionHandler(ExceptionType which) {
 			printf("forking\n");
 			Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
 			break;
+#ifdef NETWORK
 			case SC_CreateLock:
 			DEBUG('a', "CreateLock syscall.\n");
 			rv = CreateLock_Syscall();
@@ -885,6 +1223,24 @@ void ExceptionHandler(ExceptionType which) {
 			Broadcast_Syscall(machine->ReadRegister(4),
 					machine->ReadRegister(5));
 			break;
+			case SC_CreateMonitor:
+			DEBUG('a', "CreateMonitor syscall.\n");
+			rv = CreateMonitor_Syscall();
+			break;
+			case SC_DestroyMonitor:
+			DEBUG('a', "DestroyMonitor syscall.\n");
+			DestroyMonitor_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_GetMonitorVal:
+			DEBUG('a', "GetMonitorVal syscall.\n");
+			rv = GetMonitorVal_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_SetMonitorVal:
+			DEBUG('a', "SetMonitorVal syscall.\n");
+			SetMonitorVal_Syscall(machine->ReadRegister(4),
+				machine->ReadRegister(5));
+			break;
+#endif //NETWORK
 			case SC_Rand:
 			DEBUG('a', "Rand syscall.\n");
 			rv = Rand_Syscall(machine->ReadRegister(4));

@@ -40,6 +40,10 @@
 #define SC_Broadcast 19
 #define SC_Rand 20
 #define SC_IntPrint 21
+#define SC_CreateMonitor 22
+#define SC_DestroyMonitor 23
+#define SC_GetMonitorVal 24
+#define SC_SetMonitorVal 25
 
 #define MAXFILENAME 256
 
@@ -185,6 +189,20 @@ int Rand(int mod);
 
 /*Print an int using printf*/
 void IntPrint(int i);
+
+/* Creates a monitor and returns the index (id) of it
+*/
+int CreateMonitor();
+
+/* Destroys a monitor at index id
+*/
+void DestroyMonitor(int id);
+
+/*Returns the value of a monitor specified at index id*/
+int GetMonitorVal(int id);
+
+/*Set the monitor id's value to val*/
+void SetMonitorVal(int id, int val);
 
 #endif /* IN_ASM */
 
