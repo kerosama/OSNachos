@@ -151,49 +151,14 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
-// first, set up the translation 
-   /* for (i = 0; i < numPages; i++) 
-	{
-		PTLock->Acquire("");	
-		printf("trying to access pagetable\n");
-		pageTable[i].virtualPage = i;
 	
-
-		int mapping = mmBitMap->Find();
-		printf("%d\n", mapping);
-		if(mapping == -1)
-		{
-			printf("Error: Unable to find a physical page through bitmap.\n");
-			PTLock->Release("");
-			break;
-		}
-		
-		pageTable[i].physicalPage = mapping;
-
-
-		pageTable[i].valid = TRUE;
-		pageTable[i].use = FALSE;
-		pageTable[i].dirty = FALSE;
-		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-						// a separate page, we could set its 
-						// pages to be read-only
-		executable->ReadAt(&machine->mainMemory[pageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);
-		PTLock->Release("");
-    }*/
-	
+	PTLock->Acquire("");
 	for(int i =0 ; i < numPages; i++)
 	{
 		PageTable[i].virtualPage = i;
-		/*int mapping = mmBitMap->Find();
-		if(mapping == -1)
-		{
-			printf("Error: Unable to find a physical page through bitmap.\n");
-			PTLock->Release("");
-			break;
-		}*/
-		PageTable[i].physicalPage = -1;// mapping;
-		PageTable[i].valid = FALSE;
-		PageTable[i].dirty = FALSE;
+		PageTable[i].physicalPage = -1; //initially set without physical page
+		PageTable[i].valid = FALSE; //invalid with no physical page yet
+		PageTable[i].dirty = FALSE; //unchanged
 		PageTable[i].use = TRUE;
 		PageTable[i].readOnly = FALSE;
 		
@@ -201,37 +166,8 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 		PageTable[i].byteOffset = noffH.code.inFileAddr;
 		PageTable[i].diskLocation.swap = FALSE;
 		PageTable[i].diskLocation.position = PageTable[i].virtualPage*PageSize;
-
-
-		/*mIPT->ipTable[PageTable[i].virtualPage].virtualPage = PageTable[i].virtualPage;
-		mIPT->ipTable[PageTable[i].virtualPage].physicalPage = PageTable[i].physicalPage;
-		mIPT->ipTable[PageTable[i].virtualPage].valid = PageTable[i].valid;
-		mIPT->ipTable[PageTable[i].virtualPage].owner = currentThread->space;*/
-
-		//PTLock->Acquire("");
-		//executable->ReadAt(&machine->mainMemory[PageTable[i].physicalPage*PageSize], PageSize, noffH.code.inFileAddr + i*PageSize);		
-		//PTLock->Release("");
-
-		
 	}
-   
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
-   // bzero(machine->mainMemory, size);
-
-// then, copy in the code and data segments into memory
-   /* if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-			noffH.code.size, noffH.code.inFileAddr);
-    }
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-			noffH.initData.size, noffH.initData.inFileAddr);
-    }*/
+	PTLock->Release("");
 
 }
 
@@ -302,23 +238,24 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
+	
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); 
 	for (int a = 0; a < TLBSize; a++)
 	{
 		machine->tlb[a].valid = false;
 		if(machine->tlb[a].dirty == true)
-		{
+			
 			for(int i = 0; i < numPages; i++)
 			{
 				if(i == PageTable[i].physicalPage)
-				{
+				{					
 					mIPT->ipTable[i].dirty = true;
-				}
 			}
 		}
+		
 	}
-
-    //machine->pageTable = pageTable;
-    //machine->pageTableSize = numPages;
+	
+		(void) interrupt->SetLevel(oldLevel);
 }
 
 //----------------------------------------------------------------------
@@ -331,9 +268,7 @@ void AddrSpace::RestoreState()
 void AddrSpace::AddPages()
 {
 	//Add 8 pages to page table
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);
-	//printf("\nstuff\n");
-	//PTLock->Acquire("");
+	PTLock->Acquire("");
 	PTE* tempTable = new PTE[numPages + 8];
 	for(unsigned int i = 0; i < numPages; i++)
 	{
@@ -371,8 +306,7 @@ void AddrSpace::AddPages()
 	}
 
 	numPages += 8;
-	(void) interrupt->SetLevel(oldLevel);
-	//PTLock->Release("");
+	PTLock->Release("");
 }
 
 

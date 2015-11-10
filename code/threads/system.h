@@ -53,6 +53,7 @@ extern OpenFile *swapFile;
 extern BitMap *swapMap;
 extern Lock *memoryLock;
 extern Lock *iptLock;
+extern Lock *swapLock;
 
 #ifdef USER_PROGRAM
 #include "machine.h"

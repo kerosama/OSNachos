@@ -36,7 +36,7 @@ OpenFile *swapFile;
 BitMap *swapMap;
 Lock *memoryLock;
 Lock *iptLock;
-
+Lock *swapLock;
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -168,6 +168,7 @@ Initialize(int argc, char **argv)
 	swapMap = new BitMap(50000);
 	memoryLock = new Lock("Memory Lock");
 	iptLock = new Lock("IPT Lock");
+	swapLock = new Lock("Swapfile Lock");
 
     threadToBeDestroyed = NULL;
 

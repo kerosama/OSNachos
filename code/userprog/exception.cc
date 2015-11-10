@@ -340,7 +340,7 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
-	printf("inside exec syscall\n");
+	//printf("inside exec syscall\n");
 
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
@@ -357,7 +357,7 @@ SpaceId Exec_Syscall(char *name) {
 	//printf("num processes: %d\n", num_processes);
 	t->Fork(exec_thread, 0);
 
-	printf("finished exec syscall\n");
+	//printf("finished exec syscall\n");
 	return num_processes - 1;
 }
 
@@ -366,7 +366,7 @@ void kernel_thread(int va)
 	machine->WriteRegister(PCReg, va);
 	machine->WriteRegister(NextPCReg, va + 4);
 	currentThread->space->RestoreState();
-	printf("%d\n", currentThread->space->numPages);
+	//printf("%d\n", currentThread->space->numPages);
 	machine->WriteRegister(StackReg, currentThread->space->numPages * PageSize - 16);
 	machine->Run();
 }
@@ -382,12 +382,12 @@ void Fork_Syscall(int va)
 		processTable[current_process_num] = new Process(currentThread, currentThread->space);
 		
 	}
-	printf("%d-", currentThread->space->numPages);
+	//printf("%d-", currentThread->space->numPages);
 	processTable[current_process_num]->addThread(kernelThread);
-	printf("%d\n", currentThread->space->numPages);
+	//printf("%d\n", currentThread->space->numPages);
 	//printf("%d %d", (int)*func, machine->ReadRegister(4));
 	//printf("finished fork syscall\n");
-	printf("va: %d\n", va);
+	//printf("va: %d\n", va);
 	kernelThread->Fork(kernel_thread, va);
 
 
@@ -432,7 +432,7 @@ void CreateMessage(char* request, char* name)
 	//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
 	sprintf(buffer, "%s %s", request, name);
 	int length = strlen(buffer);
-	clRrequest = new char[length]; 
+	clRequest = new char[length]; 
 	strcpy(clRequest,buffer); //CREATING CLIENT REQUEST
 }
 
@@ -541,13 +541,13 @@ void Acquire_Syscall(int id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
-	if (id > current_lock_num || id < 0) 
+	/*if (id > current_lock_num || id < 0) 
 	{
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
 		return;
 	}
 	lock_arr[id]->Acquire("except");
-	lock_in_use[id] = true;
+	lock_in_use[id] = true;*/
 }
 
 void Release_Syscall(int id) {
@@ -615,7 +615,6 @@ int CreateCondition_Syscall() {
 	return atoi(temp.c_str());
 
 	int requestStatus = atoi (serverResponse);
-	REQUEST FAILED If -1
 	if(requestStatus == -1){
 	printf("\n FAILURE TO CREATE LOCK\n");
 	return -1;
@@ -919,10 +918,14 @@ void IntPrint_Syscall(int i)
 
 void WriteToSwap(int epn)
 {
+	iptLock->Acquire("");
+	currentThread->space->PTLock->Acquire("");
 	for(int j = 0; j < mIPT->ipTable[epn].owner->numPages; j++)
 	{
+		
 		if(currentThread->space->PageTable[j].physicalPage == epn)
 		{
+			
 			int swapPage = swapMap->Find();
 			if(swapPage == -1)
 			{
@@ -936,11 +939,12 @@ void WriteToSwap(int epn)
 
 			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.swap = TRUE;
 			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.position = swapPage*PageSize;
-			
 			//printf("added to swapfile\n");
 			break;
 		}
 	}	
+	iptLock->Release("");
+	currentThread->space->PTLock->Release("");
 }
 
 int handleMemoryFull(int neededVPN)
@@ -949,30 +953,40 @@ int handleMemoryFull(int neededVPN)
 	srand(time(NULL));
 	int evictedPageNum = rand() % NumPhysPages;
 
+	iptLock->Acquire("");
 	if(mIPT->ipTable[evictedPageNum].dirty == true)
 	{
+		iptLock->Release("");
 		WriteToSwap(evictedPageNum);
 	}
 	else
 	{
+		iptLock->Release("");
 		//Check if evicted page already exists in TLB
 		//If it is in TLB, check if the page is dirty
 		//If the page is dirty, find the physical page in the current process pagetable
 		//If the page exists in the pagetable, write the dirty page to an available spot in the swapfile, using the physical page number
 		
-		//Need to disable interrupts for TLB access
+		//Need to disable interrupts for TLB access		
+		  
 		for(int i = 0; i < TLBSize; i++)
 		{
+			IntStatus oldLevel = interrupt->SetLevel(IntOff); 
 			if(machine->tlb[i].physicalPage == evictedPageNum)
 			{
 				if(machine->tlb[i].dirty == TRUE)
 				{
-					
+					(void) interrupt->SetLevel(oldLevel);
 					WriteToSwap(evictedPageNum);
 					break;
 				}
+				else
+				{
+					(void) interrupt->SetLevel(oldLevel);
+				}
 			}
-		}
+		}		
+		
 	}
 
 	//need to give IPT page to replace
@@ -991,6 +1005,7 @@ int handleIPTMiss(int neededVPN)
 
 	//Get location of virtual page from current space pagetable
 	//Get data from virtual page from swap file or executable
+	currentThread->space->PTLock->Acquire("");
 	for(int j = 0; j < currentThread->space->numPages; j++)
 	{
 		if(currentThread->space->PageTable[j].virtualPage == neededVPN)
@@ -1015,13 +1030,16 @@ int handleIPTMiss(int neededVPN)
 			currentThread->space->PageTable[j].physicalPage = ppn;
 			currentThread->space->PageTable[j].valid = true;
 
+			iptLock->Acquire("");
 			mIPT->ipTable[ppn].owner = currentThread->space;
 			mIPT->ipTable[ppn].virtualPage = neededVPN;
 			mIPT->ipTable[ppn].valid = true;
 			mIPT->ipTable[ppn].dirty = false;
+			iptLock->Release("");
 			break;
 		}
-	}
+	}	
+	currentThread->space->PTLock->Release("");
 	
 
 	return ppn;
@@ -1030,24 +1048,25 @@ int handleIPTMiss(int neededVPN)
 void handlePageFault()
 {
 	
-		IntStatus oldLevel = interrupt->SetLevel(IntOff);    
 	int neededVA = machine->ReadRegister(BadVAddrReg);
 	int neededVPN = neededVA / PageSize;
 
+//	printf("VPN: %d\n", neededVPN);
 
 	int ppn = -1;
 		
+	iptLock->Acquire("");
 	for(int i = 0; i < NumPhysPages; i++)
 	{
 		if(mIPT->ipTable[i].virtualPage == neededVPN && mIPT->ipTable[i].owner == currentThread->space && mIPT->ipTable[i].valid == true)
 		{
 			//IPT hit
 			//wanted physical page is IPT index number
-			//printf("IPT hit!\n");
 			ppn = i;
 			break;
 		}
 	}
+	iptLock->Release("");
 
 	if(ppn == -1)
 	{
@@ -1060,16 +1079,15 @@ void handlePageFault()
 	if(ppn != -1)
 	{
 		//Ultimately, update TLB
-		//Need to disable interrupts
-
-		//printf("current TLB: %d\n", currentTLB);
+		//Need to disable interrupts		
+		IntStatus oldLevel = interrupt->SetLevel(IntOff);   
 		machine->tlb[currentTLB].physicalPage = ppn;
 		machine->tlb[currentTLB].virtualPage = neededVPN;
 		machine->tlb[currentTLB].valid = true;
 		machine->tlb[currentTLB].use = false;
 		machine->tlb[currentTLB].dirty = false;
 		machine->tlb[currentTLB].readOnly = false;			
-		
+		(void) interrupt->SetLevel(oldLevel);
 		//re-enable interrupts
 	}
 	else
@@ -1077,9 +1095,8 @@ void handlePageFault()
 		printf("Error: could not provide physical page to TLB");
 	}
 
-	currentTLB = (currentTLB + 1) % TLBSize;
+	currentTLB = (currentTLB + 1) % TLBSize; //Increment TLB page number for FIFO
 
-	(void) interrupt->SetLevel(oldLevel);
 }
 
 void ExceptionHandler(ExceptionType which) {

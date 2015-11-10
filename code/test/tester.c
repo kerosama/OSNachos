@@ -40,7 +40,7 @@ int main() {
     /* test1();*/
 	/*test3();*/
 
-	int id = CreateLock();
+	/*int id = CreateLock();
 	int id2, cv_id, mv_id;
 	Acquire(id);
 	Release(id);
@@ -51,7 +51,9 @@ int main() {
 	DestroyCondition(cv_id);
 
 	mv_id = CreateMonitor();
-	DestroyMonitor(mv_id);
+	DestroyMonitor(mv_id);*/
+
+	test3();
 }
 
 
@@ -120,11 +122,21 @@ void test4()
 }
 
 void test3(){
+	
+  
   Write("Test3.\n", 8, ConsoleOutput);
  /*Exec("../test/matmult", 40);
   Exec("../test/matmult", 40);*/
+  
   Fork(test4);
   Fork(test4);
+   Fork(test4);
+  Fork(test4);
+   Fork(test4);
+  Fork(test4);
+   Fork(test4);
+  Fork(test4);
+
   Exit(0);
  /* Fork(test3_t2);*/
  /* Wait(conditionID, lockID);*/

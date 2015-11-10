@@ -49,7 +49,7 @@ class AddrSpace {
     void RestoreState();		// info on a context switch
     Table fileTable;			// Table of openfiles
 
-	void AddPages();
+	void AddPages(); 	//Adds 8 pages when a new thread joins the space
 
 	PTE *PageTable;	// Assume linear page table translation
 					// for now!
@@ -57,10 +57,7 @@ class AddrSpace {
 	OpenFile *spaceExec; //store constructor executable as member variable
 
 	 unsigned int numPages;		// Number of pages in the virtual 
- private:
-   
-   
-					// address space
+	 	 
 	Lock* PTLock;
 
 };
