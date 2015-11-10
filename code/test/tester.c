@@ -38,7 +38,20 @@ int main() {
 		Write("2!\n", 3, ConsoleOutput);*/
 
     /* test1();*/
-	test3();
+	/*test3();*/
+
+	int id = CreateLock();
+	int id2, cv_id, mv_id;
+	Acquire(id);
+	Release(id);
+	DestroyLock(id);
+
+	id2 = CreateLock();
+	cv_id = CreateCondition();
+	DestroyCondition(cv_id);
+
+	mv_id = CreateMonitor();
+	DestroyMonitor(mv_id);
 }
 
 

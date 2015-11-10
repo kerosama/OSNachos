@@ -218,6 +218,40 @@ IntPrint:
 	j	$31
 	.end IntPrint
 
+	.globl CreateMonitor
+	.ent	CreateMonitor
+CreateMonitor:
+	addiu $2,$0,SC_CreateMonitor
+	syscall
+	j	$31
+	.end CreateMonitor
+
+	.globl DestroyMonitor
+	.ent	DestroyMonitor
+DestroyMonitor:
+	addiu $2,$0,SC_DestroyMonitor
+	syscall
+	j	$31
+	.end DestroyMonitor
+
+	.globl GetMonitorVal
+	.ent	GetMonitorVal
+GetMonitorVal:
+	addiu $2,$0,SC_GetMonitorVal
+	syscall
+	j	$31
+	.end GetMonitorVal
+
+	.globl SetMonitorVal
+	.ent	SetMonitorVal
+SetMonitorVal:
+	addiu $2,$0,SC_SetMonitorVal
+	syscall
+	j	$31
+	.end SetMonitorVal
+
+
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

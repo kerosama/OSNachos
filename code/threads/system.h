@@ -72,6 +72,7 @@ extern SynchDisk   *synchDisk;
 #ifdef NETWORK
 #include "post.h"
 extern PostOffice* postOffice;
+extern int net_name;
 #endif
 
 
