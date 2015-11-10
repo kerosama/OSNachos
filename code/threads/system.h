@@ -52,6 +52,7 @@ extern IPT *mIPT;
 extern OpenFile *swapFile;
 extern BitMap *swapMap;
 extern Lock *memoryLock;
+extern Lock *iptLock;
 
 #ifdef USER_PROGRAM
 #include "machine.h"

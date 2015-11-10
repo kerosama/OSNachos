@@ -100,12 +100,23 @@ void test3_t2(){
 	Exit(0);
 }
 
+void test4()
+{
+	Exec("../test/matmult", 40);
+	Exit(0);
+}
+
 void test3(){
   Write("Test3.\n", 8, ConsoleOutput);
-  Exec("../test/matmult", 40);
-  Fork("../test/matmult");
+ /*Exec("../test/matmult", 40);
+  Exec("../test/matmult", 40);*/
+  Fork(test4);
+  Fork(test4);
+  Exit(0);
  /* Fork(test3_t2);*/
  /* Wait(conditionID, lockID);*/
   /*Broadcast(conditionID, lockID);*/
 }
+
+
 

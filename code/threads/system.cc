@@ -35,6 +35,7 @@ IPT* mIPT;
 OpenFile *swapFile;
 BitMap *swapMap;
 Lock *memoryLock;
+Lock *iptLock;
 
 
 #ifdef FILESYS_NEEDED
@@ -163,6 +164,7 @@ Initialize(int argc, char **argv)
 	//swapFile->WriteAt("balls", 100, 0); 
 	swapMap = new BitMap(50000);
 	memoryLock = new Lock("Memory Lock");
+	iptLock = new Lock("IPT Lock");
 
     threadToBeDestroyed = NULL;
 

@@ -103,7 +103,7 @@ Semaphore::V()
 // the test case in the network assignment won't work!
 Lock::Lock(char* debugName) 
 {
-	lockStatus = FREE; //SETTING STATUS OF LOCK
+	//lockStatus = FREE; //SETTING STATUS OF LOCK
 
 	name = debugName;
 	acquired = false;
@@ -119,7 +119,7 @@ void Lock::Acquire(char* debugName)
 {
 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
-	printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
+	//printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
 
 	if(isHeldByCurrentThread())
 	{	
@@ -131,17 +131,17 @@ void Lock::Acquire(char* debugName)
 	
 	if(acquired)
 	{			
-		lockStatus = BUSY; //SETTING STATUS OF LOCK
+		//lockStatus = BUSY; //SETTING STATUS OF LOCK
 
-		std::cout << debugName << " waiting to acquire lock " << name << std::endl;
+		//std::cout << debugName << " waiting to acquire lock " << name << std::endl;
 		queue->Append((void*)currentThread);
 		currentThread->Sleep();	
 
 	}
 	else
 	{
-		printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
-		std::cout <<  debugName <<  " acquired lock " << name << std::endl;
+		//printf("Acquire - IsEmpty: %d\n", queue->IsEmpty());
+		//std::cout <<  debugName <<  " acquired lock " << name << std::endl;
 		owner = currentThread;
 
 		acquired = true;
@@ -162,11 +162,11 @@ void Lock::Release(char* debugName)
 	{
 		acquired = false;
 		owner = NULL;
-		std::cout << debugName << " released lock " << name << std::endl;
+		//std::cout << debugName << " released lock " << name << std::endl;
 	}
 	else
 	{
-		std::cout <<  debugName <<  ": Lock " << name << " is not held by current thread!" << std::endl;
+		//std::cout <<  debugName <<  ": Lock " << name << " is not held by current thread!" << std::endl;
 		(void)interrupt->SetLevel(oldLevel);
 		return;
 	}
@@ -182,7 +182,7 @@ void Lock::Release(char* debugName)
 		acquired = false;
 		owner = NULL;
 
-		lockStatus = FREE; //SETTING STATUS OF LOCK
+		//lockStatus = FREE; //SETTING STATUS OF LOCK
 	}
 	(void) interrupt->SetLevel(oldLevel);
 }
