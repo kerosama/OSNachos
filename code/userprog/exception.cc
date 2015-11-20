@@ -95,6 +95,7 @@ Process *processTable[50];
 int num_thr = 0; //Number of current threads (for use in exit)
 int rnd = 0;
 int currentTLB = 0;
+int currentIPT = 0;
 
 Lock *lock_arr[100];
 bool lock_in_use[100];
@@ -321,10 +322,32 @@ void Exit_Syscall(int status) {
 	printf("Output: %d\n", status);
 	if (num_thr > 0) {
 		num_thr--;
-		currentThread->Finish();
+
+		//invalidate ipt entries for this space
+		iptLock->Acquire("");
+		for(int i = 0; i < NumPhysPages; i++)
+		{
+			if(mIPT->ipTable[i].owner == currentThread->space)
+			{
+				mIPT->ipTable[i].valid = false;
+			}
+		}
+		iptLock->Release("");
+
+		currentThread->Finish();		
 	}
 	else
+	{
+		//clear the swapfile
+		char buf[PageSize];
+		memset(buf, ' ', PageSize);
+		for(int i = 0; i < SWAP_SIZE; i++)
+		{			
+			swapFile->WriteAt(buf, PageSize, i*PageSize);
+		}
+		//end program
 		interrupt->Halt();
+	}
 }
 
 void exec_thread(int arg) {
@@ -551,7 +574,7 @@ void Acquire_Syscall(int id) {
 }
 
 void Release_Syscall(int id) {
-	printf("Syscall in Exception.cc - Acquiring Lock\n");
+	printf("Syscall in Exception.cc - Releasing Lock\n");
 	char name[2];
 	sprintf(name, "%d", id);
 
@@ -934,7 +957,7 @@ void WriteToSwap(int epn)
 			}
 			
 			memoryLock->Acquire("");
-			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage*PageSize/* + mIPT->ipTable[evictedPage].owner->PageTable[j].byteOffset*/);
+			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage*PageSize);
 			memoryLock->Release("");	
 
 			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.swap = TRUE;
@@ -949,9 +972,23 @@ void WriteToSwap(int epn)
 
 int handleMemoryFull(int neededVPN)
 {
-	//randomly determine an IPT page to evict
-	srand(time(NULL));
-	int evictedPageNum = rand() % NumPhysPages;
+#ifdef NETWORK
+	bool isFIFO = true;
+#endif
+	int evictedPageNum;
+	//If isFIFO is true, use FIFO to evict page. Otherwise, use random page selection.
+	if(isFIFO)
+	{
+		//evict the page added the earliest, which is stored in currentIPT
+		evictedPageNum = currentIPT;
+		currentIPT++;
+	}
+	else
+	{
+		//randomly determine an IPT page to evict
+		srand(time(NULL));
+		evictedPageNum = rand() % NumPhysPages;
+	}
 
 	iptLock->Acquire("");
 	if(mIPT->ipTable[evictedPageNum].dirty == true)
@@ -1016,6 +1053,7 @@ int handleIPTMiss(int neededVPN)
 				memoryLock->Acquire("");
 				swapFile->ReadAt(&machine->mainMemory[ppn*PageSize], 
 					PageSize, currentThread->space->PageTable[j].diskLocation.position);
+				swapMap->Clear(ppn);
 				//printf("Reading from swapfile to main memory...\n");
 				memoryLock->Release("");
 			}

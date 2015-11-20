@@ -18,11 +18,17 @@
 #include "../userprog/bitmap.h"
 #include "../userprog/addrspace.h"
 #include "synch.h"
+
+
+#define SWAP_SIZE 50000
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
 extern void Cleanup();				// Cleanup, called when
 						// Nachos is done.
+#ifdef VM
+extern bool isFIFO;
+#endif
 
 class IPTEntry : public TranslationEntry 
 {

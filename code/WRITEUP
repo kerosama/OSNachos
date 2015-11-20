@@ -1,381 +1,1010 @@
-Title:  Writeup for Project 2, Fall 2015
- Date:  10/20/2015
- Group:	
-Brice Roland
-Jaewon Choi
-Jorge Quero
+============================================================================================================================================================================================================================================================================
+I. Requirements
+======================================================================================================================================
+======================================================================================================================================
+Part 1:
+Implement the TLB. Any program must be able to run to completion with the proper output, using the TLB to store pages when they are used. 
+This includes the following:
+1. Creating a TLB structure
+2. Replacing all of the machine->pageTable references with the TLB
+3. Invalidating TLB entries on context switch
+4. Using FIFO to replace TLB pages on pagefaults
 
- I. Requirements:
+Part 2: 
+Implement virtual memory. Everything that worked previously must work without the assumption of unlimited physical pages.
+This includes the following:
+1. Setting the maximum number of physical pages to 32. 
+2. Creating the IPT
+3. Checking the IPT for a page with the needed virtual page number upon a pageFaultException 
+4. Retrieving the page data on an IPT hit and transferring it to the TLB and the current address space pageTable
+5. Populating IPT with needed page on an IPT miss
+6. Reading from the address space executable for virtual memory that has not previously been accessed
+7. Evicting pages from the IPT when full
+6. Writing dirty, evicted pages to a swapfile and updating the disk location for the corresponding page in the address space pageTable
+7. Reading from a swapfile when a needed virtual page corresponds to a pageTable entry with its disk location in the swap file
+8. Updating the TLB whenever the IPT is updated
+9. Preventing race conditions when reading or writing to shared data, namely the TLB, IPT, pageTables, and main memory
+10. Invalidating the pages of the IPT owned by the current process when a thread finishes
+11. Clearing the swap file when the last thread has exited
 
+Part 3: 
 
-The objective of assignment 2: 
-The goal of implementing Project 2 is to fully develop an Operating System that
-utilizes multi-programming to run several processes at once as well as developing
-system calls that bridge the gap between user programs and kernel code. By creating
-these system calls, we allow user-level 'C' programs to limitedly request information
-from the kernel space and carry out exceptions that it would not have access to otherwise.
-Additionally, applying multiprogramming on top of these system calls allows multiple
-processes to be run and interact with these syscalls at the same time via a process
-table. Each of these processes act independently and contain their own threads,
-each of which carry out their own tasks. The goal of the assignment is to orderly
-handle each process that requests space from the system and execute their calls to
-the system via exception handling.
+Implementation for remote procedure calls for the Lock and Condition Variable system calls in Project 2, and new system calls for handling monitor variables. 
 
-II. Assumptions:
+Part 3 simulates a networking system that handles both the client and server sides. The process begins with a client making a request out to the server for a particular system call. Upon receiving, the server handles the request and provides an ID that enables access each individual request from clients. The implementation in client has been handled so that a user program can make a request and a system call in client would transmit the request to the server. 
 
+Server is a system made up of a single thread, running in a never-ending loop to retrieve any incoming requests. Client is a machine which sends a request to the server and waits for its response. Condition variables, monitor variables, and locks are to be implemented conceptually rather than physically remotely, since the threads are running on different systems, allocating their address space on various machines.
 
-In order to handle the number of processes, the processes need to organized cleanly
-into a process table, handled outside of the user programs themselves (kernel code).
-Furthermore, each process with its threads need to know the address space that they
-have to use, meaning their address space must be updated with the space of the current
-thread starting them (the kernel thread forking the new thread). Each syscall must
-also interpret the value within the register given to them as either a true integer
-or parse information from a pointer given to them from memory to obtain other data
-types (such as char*). 
+======================================================================================================================================
+======================================================================================================================================
+II. Assumptions
+======================================================================================================================================
+======================================================================================================================================
 
-III. Design:
+Part 1: 
+• The translation files handle valid bits properly for TranslationEntry
+• Page Tables inside AddrSpace function properly
+• All of the syscalls from Project 2 function properly
+• Unlimited physical pages
 
+Part 2:
+• The swap file can be placed inside the vm directory
 
-The design approach we took was to develop the syscalls and then create the process table
-and multi-programming around that. We organized the syscalls similarly to the syscalls
-given, utilizing the switch-case statement within the ExceptionHandler in Exception.cc
-to delineate what actions should be taken with the information provided in the registers.
-Any processes calling the Exec syscall are then put into the process table in which they 
-given an address space to run their appropriate threads. Within Part 3, this applies
-directly to the Passport Office, as multiple Passports Offices should be able to run
-as several processes, each with customers and clerks as threads. 
+Part 3:
+• Post office runs accordingly
+• Mailboxes are set up to function accordingly
+• Messages are sent correctly through post office
 
-IV. Implementation:
-	+ Files Modified
-../Userprog:
-exception.cc
-syscall.h
-addrspace.h/.cc
-../Test:
-Makefile
-start.s
-../Machine:
-machine.h
+======================================================================================================================================
+======================================================================================================================================
+III. Design
+======================================================================================================================================
+======================================================================================================================================
+Part 1:
 
+Handling page faults (with physical memory):
+Before the existence of the IPT or swapfile, all virtual memory was preloaded into main memory through the addrSpace constructor.
+All that had to be done at this point was replacing pages in the TLB using FIFO and getting the proper information from the page table in the current address space.
 
-+ Files added
-../Userprog:
-../Test:
-tester.c
-userprogram.c
+Below is the handlePageFault function by the completion of this step:
 
-+ Data Structures added, and the file they were added to.
-
-1. userprog/exception.cc:
-
-//Process Table to hold processes and assign 
-class ProcessTable {
-	
-}
-
-+ Data Structures modified, and the file they were added to.
-
-+ Functions added and in which file.
-
-1. userprog/syscall.h:
-int CreateLock();
-void DestroyLock(int id);
-void Acquire(int id);
-void Release(int id);
-int CreateCondition();
-void DestroyCondition(int id);
-void Signal(int id, int lock_id);
-void Wait(int id, int lock_id);
-void Broadcast(int id, int lock_id);
-int Rand(int mod);
-void IntPrint(int i);
-
-2. userprog/exception.cc
-void exec_func(int arg) {
-	printf("running thread - exec.");
-
-	currentThread->space->InitRegisters();		// set the initial register values
-	currentThread->space->RestoreState();		// load page table register
-	machine->Run();			// jump to the user progam
-}
-
-SpaceId Exec_Syscall(char *name) {
-	/* Exec - Takes in name of process and returns the id of the space for the process.
-	*  The process table is updated with the space and a new exec thread is forked.
-	*  Function is based on progtest.cc's StartProcess(char *) function.
-	*/
-	
-	OpenFile *executable = fileSystem->Open(name);
-	if (executable == NULL) {
-		printf("Unable to open file %s\n", name);
-		return -1;
-	}
-	
-	AddrSpace *space = new AddrSpace(executable);
-
-	Thread* t = new Thread("exec thread");
-	t->space = tempAddrSpace;
-
-	num_processes++;
-	processTable[current_process_num] = new Process(t);
-	processTable[current_process_num++]->addrSpace = tempAddrSpace;;
-	
-	t->Fork(exec_func, 0);
-
-	currentThread->Yield();
-	return current_process_num - 1;
-}
-
-void kernel_thread(int va) {
-
-}
-
-void Fork_Syscall(VoidFunctionPtr func)
-{
-	if (currentThread->space == NULL)
-	{
-		printf("Fork: Current thread has no address space.\n");
-		return;
-	}
-	Thread* kernelThread = new Thread("kernel thread");
-	processTable[current_process_num]->addThread(kernelThread);
-	kernelThread->space = currentThread->space;
-	kernelThread->Fork((VoidFunctionPtr)func, 0);
-}
-
-int CreateLock_Syscall() {
-	char name[5];
-	sprintf(name, "%d", current_lock_num);
-	strcat(name, "lock");
-	/*struct Lock_Struct temp;*/
-	Lock *temp = new Lock(name);
-	lock_arr[current_lock_num] = temp;
-	lock_in_use[current_lock_num] = false;
-	should_delete_lock[current_lock_num] = false;
-	current_lock_num++;
-	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
-	return (current_lock_num - 1);
-}
-
-void DestroyLock_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Destroy Lock Syscall - id does not exist.\n");
-		return;
-	}
-	if (lock_in_use[id])
-		should_delete_lock[id] = true;
-	else
-		delete lock_arr[id];
-}
-
-void Acquire_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Acquire Lock Syscall - id does not exist.\n");
-		return;
-	}
-	lock_arr[id]->Acquire("except");
-	lock_in_use[id] = true;
-}
-
-void Release_Syscall(int id) {
-	if (id > current_lock_num || id < 0) {
-		printf("Error: Release Lock Syscall - id does not exist.\n");
-		return;
-	}
-	lock_in_use[id] = false;
-	lock_arr[id]->Release("except");
-	printf("2\n");
-	if (should_delete_lock[id])
-		delete lock_arr[id];
-}
-
-int CreateCondition_Syscall() {
-	Condition *tempCond = new Condition("temp");
-	cond_arr[current_cond_num++] = tempCond;
-	return current_cond_num - 1;
-}
-
-void DestroyCondition_Syscall(int id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Destroy Condition Syscall - id does not exist.\n");
-		return;
-	}
-	delete cond_arr[id];
-}
-
-void Signal_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Signal Condition Syscall - id does not exist.\n");
-		return;
-	}
-	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Signal Condition Syscall - lock id does not exist.\n");
-		return;
-	}
-	cond_arr[id]->Signal("", lock_arr[lock_id]);
-}
-
-void Wait_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Wait Condition Syscall - id does not exist.\n");
-		return;
-	}
-	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Wait Condition Syscall - lock id does not exist.\n");
-		return;
-	}
-	cond_arr[id]->Wait("", lock_arr[lock_id]);
-}
-
-void Broadcast_Syscall(int id, int lock_id) {
-	if (id > current_cond_num || id < 0) {
-		printf("Error: Broadcast Condition Syscall - id does not exist.\n");
-		return;
-	}
-	if (lock_id > current_lock_num || lock_id < 0) {
-		printf("Error: Broadcast Condition Syscall - lock id does not exist.\n");
-		return;
-	}
-	cond_arr[id]->Broadcast(lock_arr[lock_id]);
-}
-
-int Rand_Syscall(int mod) {
-	srand(time(NULL));
-	rnd = rand() % mod;
-	return rnd;
-}
-
-void IntPrint_Syscall(int i)
-{
-	printf("%d", i);
-}
-
-+ Functions modified and in which file.
-
-1. userprog/exception.cc:
-
-void ExceptionHandler(ExceptionType which) {
-    int type = machine->ReadRegister(2); // Which syscall?
-    int rv=0; 	// the return value from a syscall
-
-    if ( which == SyscallException ) {
-	switch (type) {
-
-	   // ... unmodified syscall cases ... //
-	   // ...
-
-	   //modified cases: 
-		case SC_Yield:
-		DEBUG('a', "Yield syscall.\n");
-		currentThread->Yield();
-		break;
-		case SC_Exit:
-		DEBUG('a', "Exit syscall.\n");
-		Exit_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Exec:
-		DEBUG('a', "Exec syscall.\n");
-		char* data = new char[machine->ReadRegister(5)];
-		int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
-		rv = Exec_Syscall(data);
-		break;
-		case SC_Fork:
-		DEBUG('a', "Fork syscall.\n");
-		Fork_Syscall((VoidFunctionPtr)machine->ReadRegister(4));
-		break;
-		case SC_CreateLock:
-		DEBUG('a', "CreateLock syscall.\n");
-		rv = CreateLock_Syscall();
-		break;
-		case SC_DestroyLock:
-		DEBUG('a', "DestroyLock syscall.\n");
-		DestroyLock_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Acquire:
-		DEBUG('a', "Acquire syscall.\n");
-		Acquire_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Release:
-		DEBUG('a', "Release syscall.\n");
-		Release_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_CreateCondition:
-		DEBUG('a', "CreateCondition syscall.\n");
-		rv = CreateCondition_Syscall();
-		break;
-		case SC_DestroyCondition:
-		DEBUG('a', "DestroyCondition syscall.\n");
-		DestroyCondition_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_Signal:
-		DEBUG('a', "Signal syscall.\n");
-		Signal_Syscall(machine->ReadRegister(4), 
-				machine->ReadRegister(5));
-		break;
-		case SC_Wait:
-		DEBUG('a', "Wait syscall.\n");
-		Wait_Syscall(machine->ReadRegister(4), 
-				machine->ReadRegister(5));
-		break;
-		case SC_Broadcast:
-		DEBUG('a', "Broadcast syscall.\n");
-		Broadcast_Syscall(machine->ReadRegister(4),
-				machine->ReadRegister(5));
-		break;
-		case SC_Rand:
-		DEBUG('a', "Rand syscall.\n");
-		rv = Rand_Syscall(machine->ReadRegister(4));
-		break;
-		case SC_IntPrint:
-		DEBUG('a', "IntPrint syscall.\n");
-		IntPrint_Syscall(machine->ReadRegister(4));
-		break;
-	}
-	// ...rest of function
-}
-
-V. Testing:  (For each test case, you must show)
-	+ How to test
-	compile via gmake (in test and userprog directories) and run using the following commands.
-
-	nachos -x ../test/tester - Test suite for testing syscalls.
-	nachos -x ../test/userprog - The passport office for part 3 will immediately run with default settings. 
-	
-	+ Test Output
-	- Part 1/2 testing output - The user program with call the syscall to write to the screen for each test and note on the correctness of events occuring.
-	- Part 2 testing output - The output will include the interaction of various clerks with customers, senators, managers, etc. This follows the output guidelines of project 1.
-
-
-VI. Discussion:
-	+ Experiment expectation.  (What is supposed to happen.)
-	Part 1/2: Allow for user programs to call kernel-only commands throught the use of exceptions
-	via syscalls. These syscalls run kernel-only commands and return any needed information back 
-	to the user program that would be needed. This may include the id number of a lock or condition 
-	variable, or the output pointer to a file. Processes are handled for multi-programming and allow
-	multiple processes to be handled at once. Threads are given proper address spaces within their 
-	processes to run.
-	Part 3: Be able to run the passport office as a user program utilizing code in C. All calls previously
-	denoted as kernel code should now run through syscalls. The output remains the same, and having
-	multiple passport office processes running should be possible.
-
-	+ Experiment result.  (What actually happened.)
-	Part 1/2: Locks and Condition variables were implemented fully. Locks and conditions can be created 
-	and interacted with via syscalls. Creation syscalls return the id of that lock/condition that can be
-	used later to interact with that sychronization device later on. Yield and Exit also work as intended.
-	Fork and Exec's incorporation with the process table is currently failing. Attempting to read in a 
-	user program into exec causes a failure to read and Fork causes a segmentation fault.
-
-	Part 3: IN PROGRESS
-
-	+ Explanation
-
-	Locks and Condition variables work as intended via syscalls. They can be interacted with appropriately 
-	and allow the passport office to run accordingly with synchronization in order. The exit and yield functions
-	also work accordingly, and appropriately exit or yield a thread that call it (such as the clerks going on
-	break or customers leaving the office). Fork and exec are not implemented yet...
-
+void handlePageFault()
+{	
+	int neededVA = machine->ReadRegister(BadVAddrReg);
+	int neededVPN = neededVA / PageSize;
 		
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);   
+	machine->tlb[currentTLB].physicalPage = currentThread->space->pageTable[neededVPN].physicalPage;
+	machine->tlb[currentTLB].virtualPage = neededVPN;
+	machine->tlb[currentTLB].valid = true;
+	machine->tlb[currentTLB].use = false;
+	machine->tlb[currentTLB].dirty = false;
+	machine->tlb[currentTLB].readOnly = false;			
+	(void) interrupt->SetLevel(oldLevel);
 
-VIII. Miscellaneous:
-- Senator and Manager both currently have frameworks of how to work, but are not currently implemented
-withing the user program.
+	currentTLB = (currentTLB + 1) % TLBSize; //Increment TLB page number for FIFO
+}
+
+Also, in the RestoreState function in AddrSpace, the TLB pages were invalidated.
+
+void AddrSpace::RestoreState() 
+{	
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); 
+	for (int a = 0; a < TLBSize; a++)
+	{
+		machine->tlb[a].valid = false;
+	}
+	(void) interrupt->SetLevel(oldLevel);
+}
+
+Note: The page table population and preloaded memory in the AddrSpace constructor have not yet changed since project 2. 
+
+Part 2:
+IPTEntry is the same as TranslationEntry, except it has a pointer to the address space that owns it.
+It is a class defined in threads/system.
+
+class IPTEntry : public TranslationEntry 
+{
+	 public:
+		AddrSpace* owner;
+};
+
+The IPT class is the IPT data structure, having an array of IPTEntries of size NumPhysPages.
+It is a class defined in threads/system.
+
+class IPT
+{
+	public:
+		IPT();
+		~IPT();
+		IPTEntry* ipTable;
+
+};
+
+The following are variables defined in threads/system, for global use:
+
+BitMap *mmBitMap
+A pointer to the bitmap for the IPT, containing 32 bits, the same as the number of physical pages in the IPT
+		
+IPT *mIPT;
+A pointer to the IPT, shared by all of the processes
+
+OpenFile *swapFile;
+A pointer to the file that contains dirty, evicted pages
+
+BitMap *swapMap;
+A pointer to the bitmap for the swap file, which determines where pages get written to the swap file
+
+Lock *memoryLock;
+A pointer to the lock that enables mutual exclusion when writing to or reading from main memory
+
+Lock *iptLock;
+A pointer to the lock that enables mutual exclusion when writing to or reading from the IPT
+
+Lock *swapLock;
+A pointer to the lock that enables mutual exclusion when writing to or reading from the swapFile
+
+The following are new variables in the AddrSpace class:
+
+OpenFile *spaceExec
+A pointer to the executable passed through the AddrSpace constructor. 
+The executable needed to be stored for this part of the project because virtual memory could no longer be preloaded.
+
+struct DiskLocation
+{
+	bool swap;
+	int position;
+};
+A struct to indicate the location of a page table entry's data on disk
+
+class PTE : public TranslationEntry
+{
+	public:
+		int byteOffset;
+		DiskLocation diskLocation;
+};
+A modified TranslationEntry that contains a byteoffset, which is equivalent to noffH.code.inFileAddr, and a DiskLocation
+
+Handling page faults (with virtual memory):
+
+Before the current TLB page is replaced, the page with the needed virtual memory must be found inside the IPT, rather than the current
+address space's page table.
+First, a variable ppn is declared and initialized to -1, which is not a physical page number. 
+It is to be replaced with the desired physical page number eventually.
+The first attempt to find the physical page number is by verifying that one of the 32 entries in the IPT has the matching virtual page number,
+is owned by the current address space, and is valid. In that case, it is an IPT hit.
+
+void handlePageFault()
+{
+	
+	int neededVA = machine->ReadRegister(BadVAddrReg);
+	int neededVPN = neededVA / PageSize;
+
+
+	int ppn = -1;
+		
+	iptLock->Acquire("");
+	for(int i = 0; i < NumPhysPages; i++)
+	{
+		if(mIPT->ipTable[i].virtualPage == neededVPN && mIPT->ipTable[i].owner == currentThread->space && mIPT->ipTable[i].valid == true)
+		{
+			//IPT hit
+			//wanted physical page is IPT index number
+			ppn = i;
+			break;
+		}
+	}
+	iptLock->Release("");
+
+	if(ppn == -1)
+	{
+		//IPT miss
+		//check swap file and executable
+		ppn = handleIPTMiss(neededVPN);
+	}
+		
+	if(ppn != -1)
+	{
+		//Ultimately, update TLB
+		//Need to disable interrupts		
+		IntStatus oldLevel = interrupt->SetLevel(IntOff);   
+		machine->tlb[currentTLB].physicalPage = ppn;
+		machine->tlb[currentTLB].virtualPage = neededVPN;
+		machine->tlb[currentTLB].valid = true;
+		machine->tlb[currentTLB].use = false;
+		machine->tlb[currentTLB].dirty = false;
+		machine->tlb[currentTLB].readOnly = false;			
+		(void) interrupt->SetLevel(oldLevel);
+		//re-enable interrupts
+	}
+	else
+	{
+		printf("Error: could not provide physical page to TLB");
+	}
+
+	currentTLB = (currentTLB + 1) % TLBSize; //Increment TLB page number for FIFO
+
+}
+
+Otherwise, it is an IPT miss, and the next resort is to call the handleIPTMiss function, which provides a physical page for the needed virtual address.
+Inside this function, the IPT bitmap is searched for a free entry. 
+If there is no free entry, a page will be evicted in the handleMemoryFull function.
+Otherwise, all of the pages in the address space pagetable are checked for a matching virtual page, and if a match is found, the data
+corresponding to the page in virtual memory gets retrieved from the executable or swapfile, depending on the DiskLocation of the page, and written into main memory. 
+
+int handleIPTMiss(int neededVPN)
+{
+	
+	int ppn = mmBitMap->Find();
+	if(ppn == -1)
+	{
+		//printf("out of memory\n");
+		ppn = handleMemoryFull(neededVPN);
+	}	
+
+	//Get location of virtual page from current space pagetable
+	//Get data from virtual page from swap file or executable
+	currentThread->space->PTLock->Acquire("");
+	for(int j = 0; j < currentThread->space->numPages; j++)
+	{
+		if(currentThread->space->PageTable[j].virtualPage == neededVPN)
+		{
+			
+			if(currentThread->space->PageTable[j].diskLocation.swap)
+			{
+				memoryLock->Acquire("");
+				swapFile->ReadAt(&machine->mainMemory[ppn*PageSize], 
+					PageSize, currentThread->space->PageTable[j].diskLocation.position);
+				swapMap->Clear(ppn);
+				memoryLock->Release("");
+			}
+			else
+			{
+				memoryLock->Acquire("");
+				currentThread->space->spaceExec->ReadAt(&machine->mainMemory[ppn*PageSize], 
+					PageSize, neededVPN*PageSize + currentThread->space->PageTable[j].byteOffset);
+				memoryLock->Release("");
+			}
+			currentThread->space->PageTable[j].physicalPage = ppn;
+			currentThread->space->PageTable[j].valid = true;
+
+			iptLock->Acquire("");
+			mIPT->ipTable[ppn].owner = currentThread->space;
+			mIPT->ipTable[ppn].virtualPage = neededVPN;
+			mIPT->ipTable[ppn].valid = true;
+			mIPT->ipTable[ppn].dirty = false;
+			iptLock->Release("");
+			break;
+		}
+	}	
+	currentThread->space->PTLock->Release("");
+	return ppn;
+}
+
+Lastly, if the IPT is already full, a page must be evicted by selecting a random page to evict or by using FIFO, which is specified in the command line.
+When a page is evicted, it is checked whether it is dirty. If it is dirty, it is written to the swap file using the WriteToSwap function, in which the dirty memory is written into the swap file.
+
+void WriteToSwap(int epn)
+{
+	iptLock->Acquire("");
+	currentThread->space->PTLock->Acquire("");
+	for(int j = 0; j < mIPT->ipTable[epn].owner->numPages; j++)
+	{
+		
+		if(currentThread->space->PageTable[j].physicalPage == epn)
+		{
+			
+			int swapPage = swapMap->Find();
+			if(swapPage == -1)
+			{
+				printf("Error: swapfile full\n");
+				return;
+			}
+			
+			memoryLock->Acquire("");
+			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage*PageSize);
+			memoryLock->Release("");	
+
+			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.swap = TRUE;
+			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.position = swapPage*PageSize;
+			break;
+		}
+	}	
+	iptLock->Release("");
+	currentThread->space->PTLock->Release("");
+}
+
+In addition to these new implementations, there were changes to Part 1.
+The AddrSpace::RestoreState function, now looks like this:
+
+void AddrSpace::RestoreState() 
+{	
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); 
+	for (int a = 0; a < TLBSize; a++)
+	{
+		machine->tlb[a].valid = false;
+		if(machine->tlb[a].dirty == true)
+			
+			for(int i = 0; i < numPages; i++)
+			{
+				if(i == PageTable[i].physicalPage)
+				{					
+					mIPT->ipTable[i].dirty = true;
+			}
+		}		
+	}	
+	(void) interrupt->SetLevel(oldLevel);
+}
+
+In the Exit syscall, the IPT pages belonging to the terminated thread's process are invalidated.
+In addition, the swapfile is cleared when all threads are terminated.
+The Exit syscall now looks like this:
+
+void Exit_Syscall(int status) {
+	// If there are other threads, finish the thread, otherwise call halt
+	// and stop the user program.
+	printf("Output: %d\n", status);
+	if (num_thr > 0) {
+		num_thr--;
+
+		//invalidate ipt entries for this space
+		iptLock->Acquire("");
+		for(int i = 0; i < NumPhysPages; i++)
+		{
+			if(mIPT->ipTable[i].owner == currentThread->space)
+			{
+				mIPT->ipTable[i].valid = false;
+			}
+		}
+		iptLock->Release("");
+
+		currentThread->Finish();		
+	}
+	else
+	{
+		//clear the swapfile
+		char buf[PageSize];
+		memset(buf, ' ', PageSize);
+		for(int i = 0; i < SWAP_SIZE; i++)
+		{			
+			swapFile->WriteAt(buf, PageSize, i*PageSize);
+		}
+		//end program
+		interrupt->Halt();
+	}
+}
+
+
+Part 3:
+System call handler utilizes the system call implement in the client system to send a request to server.
+Upon receiving, the server parses the message of the request and processes it accordingly. 
+
+struct ServerLock{
+    int ownerOfLock;
+    int inUse;
+    char* nameOfLock;
+    bool toBeDeleted;
+
+    List* destMachineIDQueue;
+    List* msgQueue;
+    LockStatus lockStatus;
+};
+int lockServerIDAdder = 0;
+ServerLock lockServerList[LOCKS_MAX_COUNT];
+
+struct ServerCV{
+    int waitLock;
+    int inUse;
+    int waitQueueCount;
+    char *nameOfCV;
+    bool toBeDeleted;
+
+    List *msgQueue;
+    List *destMachineIDQueue; 
+};
+int cvServerIDAdder = 0;
+ServerCV cvServerList[CV_MAX_COUNT];
+
+struct ServerMV{
+    int size;
+    //int* mv;
+	int mv;
+    int inUse;
+
+    char* nameOfMV;
+};
+int mvServerIDAdder = 0;
+ServerMV mvServerList[MV_MAX_COUNT];
+
+——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+I. 
+createServerLock(lockName, idOfMachine){
+    int lenOfName;
+    lenOfName = strlen(lockName);
+
+    for(int i = 0; i < lockServerIDAdder; i++){
+        if(lockServerList[i].nameOfLock != NULL){
+            if(strcmp(lockServerList[i].nameOfLock, lockName) == 0){
+                sprintf(ack,"%d",i);
+		lockServerList[i].inUse++;
+                return;
+            }
+        }
+    }
+
+    if(lockServerIDAdder >= LOCKS_MAX_COUNT){
+        strcpy(ack,"-1");
+        return;
+    }
+
+    lockServerList[lockServerIDAdder].ownerOfLock = 0;
+    lockServerList[lockServerIDAdder].inUse = 1;
+    lockServerList[lockServerIDAdder].toBeDeleted = false;
+
+    lockServerList[lockServerIDAdder].destMachineIDQueue = new List;
+    lockServerList[lockServerIDAdder].msgQueue = new List;
+    lockServerList[lockServerIDAdder].lockStatus = FREE;
+
+    lockServerList[lockServerIDAdder].nameOfLock = new char[40];
+    strcpy(lockServerList[lockServerIDAdder].nameOfLock,lockName);
+
+    sprintf(ack,"%d",lockServerIDAdder++);
+
+    return;
+}
+
+II.
+acquireServerLock(idOfLock, idOfMachine){
+	if (idOfLock < 0 || idOfLock > lockServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	if (lockServerList[idOfLock].lockStatus == FREE){
+		lockServerList[idOfLock].ownerOfLock = idOfMachine;
+		lockServerList[idOfLock].lockStatus = BUSY;
+	}
+
+	else{
+		msg = new char[70];
+		strcpy(msg, "clientmsg");
+
+		toAddress = new int;
+		*toAddress = idOfMachine;
+
+		lockServerList[idOfLock].destMachineIDQueue->Append((void *)toAddress);
+		return 0;
+	}
+
+	strcpy(ack, "1");
+	return 1;
+}
+
+III.
+releaseServerLock(idOfLock, int idOfMachine){
+	if (idOfLock < 0 || idOfLock > lockServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	if (!(lockServerList[idOfLock].msgQueue->IsEmpty())){
+		char *pointerMsg;
+		int *pointerMachineID;
+  
+		pointerMsg = (char *)lockServerList[idOfLock].msgQueue->Remove();
+		pointerMachineID = (int *)lockServerList[idOfLock].destMachineIDQueue->Remove();
+
+		strcpy(ack, "1");
+		outPktHdr.to = *pointerMachineID; //location                          
+		outMailHdr.to = *pointerMachineID;
+		outMailHdr.from = 0;
+		outMailHdr.length = strlen(ack) + 1;
+
+		postOffice->Send(outPktHdr, outMailHdr, ack);
+	}
+	else{
+		lockServerList[idOfLock].ownerOfLock = 0;
+		lockServerList[idOfLock].lockStatus = FREE;
+	}
+
+	strcpy(ack, "1");
+	return 1;
+}
+
+IV.
+destroyServerLock(idOfLock, idOfMachine){
+	if (idOfLock < 0 || idOfLock > lockServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return;
+	}
+	if (!(lockServerList[idOfLock].msgQueue->IsEmpty())){
+		lockServerList[idOfLock].toBeDeleted = true;
+		strcpy(ack, "1");
+		return;
+	}
+	lockServerList[idOfLock].inUse--; 
+
+	if (lockServerList[idOfLock].inUse == 0){
+		lockServerList[idOfLock].ownerOfLock = 0;
+		lockServerList[idOfLock].nameOfLock = NULL;
+
+		delete lockServerList[idOfLock].msgQueue;
+		delete lockServerList[idOfLock].destMachineIDQueue;
+	}
+
+	strcpy(ack, "1");
+	return;
+}
+
+V.
+CreateCV(nameOfCondition, idOfMachine){
+	int lenOfName;
+	lenOfName = strlen(nameOfCondition);
+
+	for (int i = 1; i < cvServerIDAdder; i++){
+		if (cvServerList[i].nameOfCV != NULL){
+			if (strcmp(cvServerList[i].nameOfCV, nameOfCondition) == 0){
+				sprintf(ack, "%d", i);
+				cvServerList[i].inUse++;
+				return;
+			}
+		}
+	}
+
+	if (cvServerIDAdder >= CV_MAX_COUNT){
+		strcpy(ack, "-1");
+		return;
+	}
+
+	cvServerList[cvServerIDAdder].inUse = 1;
+	cvServerList[cvServerIDAdder].toBeDeleted = false;
+	cvServerList[cvServerIDAdder].waitQueueCount = 0;
+
+	cvServerList[cvServerIDAdder].destMachineIDQueue = new List;
+	cvServerList[cvServerIDAdder].msgQueue = new List;
+	cvServerList[cvServerIDAdder].waitLock = -1;
+
+	cvServerList[cvServerIDAdder].nameOfCV = new char[50];
+
+	strcpy(cvServerList[cvServerIDAdder].nameOfCV, nameOfCondition);
+
+	sprintf(ack, "%d", cvServerIDAdder);
+	cvServerIDAdder++;
+
+	return;
+}
+
+VI.
+DestroyCV(idOfCondition, idOfMachine){
+	if (idOfCondition < 0 || idOfCondition > cvServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+	if (!(cvServerList[idOfCondition].msgQueue->IsEmpty())){
+		cvServerList[idOfCondition].toBeDeleted = true;
+		strcpy(ack, "1");
+		return 1;
+	}
+	cvServerList[idOfCondition].inUse--; 
+
+	if (cvServerList[idOfCondition].inUse == 0){
+		cvServerList[idOfCondition].waitQueueCount = -1;
+		cvServerList[idOfCondition].waitLock = -1;
+		cvServerList[idOfCondition].nameOfCV = NULL;
+
+		delete cvServerList[idOfCondition].msgQueue;
+	}
+
+	strcpy(ack, "1");
+	return 1;
+}
+
+VII.
+WaitCV(conditionID, lockID, idOfMachine){
+	if (conditionID < 0 || conditionID > cvServerIDAdder ||
+		lockID < 0 || lockID > lockServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	int index = 0;
+
+	if (cvServerList[conditionID].waitLock == -1)
+		cvServerList[conditionID].waitLock = lockID;
+	else
+	{
+		printf("WaitCV: Lock being waited on.");
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	releaseServerLock(lockID, idOfMachine);
+
+	msg = new char[70];
+	strcpy(msg, "clientcvmsg");
+	toAddress = new int;
+	*toAddress = idOfMachine;
+
+	cvServerList[conditionID].msgQueue->Append((void *)msg);               
+	cvServerList[conditionID].destMachineIDQueue->Append((void *)toAddress);              
+
+	return 0;
+}
+
+VIII.
+SignalCV(conditionID, lockID, idOfMachine){
+
+	if (conditionID < 0 || conditionID > cvServerIDAdder ||
+		lockID < 0 || lockID > lockServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	if (lockID != cvServerList[conditionID].waitLock)
+	{
+		strcpy(ack, "-1");
+		return 1;
+	}
+
+	int index = 0;
+
+	cvServerList[conditionID].msgQueue->Remove();
+
+	if(cvServerList[conditionID].msgQueue->IsEmpty()){
+		cvServerList[conditionID].waitLock = -1;
+	}
+
+	int signalMachineID = *((int *)cvServerList[conditionID].destMachineIDQueue->Remove());
+	acquireServerLock(signalMachineID, lockID);
+	
+	strcpy(ack, "1");
+	outPktHdr.to = signalMachineID;                                     
+	outMailHdr.to = signalMachineID;
+	outMailHdr.from = 0;
+	outMailHdr.length = strlen(ack) + 1;
+	postOffice->Send(outPktHdr, outMailHdr, ack);
+
+	strcpy(ack, "1");
+
+	return 1;
+}
+
+IX.
+int BroadcastCV(conditionID, lockID, idOfMachine){
+
+	while (!(cvServerList[conditionID].msgQueue->IsEmpty())){
+		SignalCV(conditionID, lockID, idOfMachine);
+	}
+	return 1;
+}
+
+X.
+CreateMV(name, idOfMachine)
+{
+	for (int i = 1; i < mvServerIDAdder; i++){
+		if (mvServerList[i].nameOfMV != NULL){
+			if (strcmp(mvServerList[i].nameOfMV, name) == 0){
+				sprintf(ack, "%d", i);
+				mvServerList[i].inUse++;
+				return;
+			}
+		}
+	}
+
+	if (mvServerIDAdder >= MV_MAX_COUNT){
+		strcpy(ack, "-1");
+		return;
+	}
+
+	mvServerList[mvServerIDAdder].inUse = 1;
+
+	mvServerList[mvServerIDAdder].nameOfMV = new char[40];
+	strcpy(mvServerList[mvServerIDAdder].nameOfMV, name);
+
+	sprintf(ack, "%d", mvServerIDAdder);
+	mvServerIDAdder++;
+	return;
+}
+
+XI.
+DestroyMV(idOfMV, idOfMachine)
+{
+	if (idOfMV < 0 || idOfMV > mvServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return;
+	}
+
+	mvServerList[idOfMV].inUse--;
+	if (mvServerList[idOfMV].inUse == 0){
+		mvServerList[idOfMV].size = -1;
+		mvServerList[idOfMV].mv = NULL;
+		mvServerList[idOfMV].nameOfMV = NULL;
+	}
+	strcpy(ack, "1");
+	
+	return;
+}
+
+XII.
+GetMV(idOfMV, idOfMachine)
+{
+	if (idOfMV < 0 || idOfMV > mvServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return;
+	}
+
+	int value = mvServerList[idOfMV].mv;
+	sprintf(ack, "%d", value);
+	return;
+}
+
+XIII.
+SetMV(idOfMV, value, machineID)
+{
+	if (idOfMV < 0 || idOfMV > mvServerIDAdder)
+	{
+		strcpy(ack, "-1");
+		return;
+	}
+
+	mvServerList[idOfMV].mv = value;
+	strcpy(ack, "1");
+	return;
+}
+
+======================================================================================================================================
+======================================================================================================================================
+IV. Implementation ======================================================================================================================================
+======================================================================================================================================
++Files modified
+	exception.cc
+	syscall.h
+	system.h
+	system.cc
+	addrspace.h
+	addrspace.cc
+	swapfile
+	nettest.cc
+
++Files added
++Data structure added
+	-In file nettest.cc
+		struct ServerLock
+		struct ServerCV
+		struct ServerMV
+
++Data structure modified
++Functions added
+	-In file nettest.cc
+		createServerLock();
+		acquireServerLock();
+		releaseServerLock();
+		destroyServerLock();
+		CreateCV();
+		DestroyCV();
+		WaitCV();
+		SignalCV();
+		BroadcastCV();
+		CreateMV();
+		DestroyMV();
+		GetMV();
+		SetMV();
+		parsingRequest();
+		doServer();
+		
++Functions modified
+	-In file exception.cc		
+		CreateLock();
+		DestroyLock();
+		Acquire();
+		Release();
+		CreateCondition();
+		DestroyCondition();
+		Signal();
+		Wait();
+		Broadcast();
+		CreateMonitor();
+		DestroyMonitor();
+		GetMonitorVal();
+		SetMonitorVal();
+
+	-In file nettest.cc
+		MailTest();
+
+======================================================================================================================================
+======================================================================================================================================
+V. Testing
+======================================================================================================================================
+======================================================================================================================================
+TESTS FOR VM: -matmult2.c, tester.c
+To run: nachos -x ../test/(filename) -P ("RAND" or "FIFO") -rs (some integer)
+
+matmult2.c:
+Tests two instances of matmult with 2 fork calls.
+
+#define Dim 	20	/* sum total of the arrays doesn't fit in 
+			 * physical memory 
+			 */
+	int A[Dim][Dim];
+	int B[Dim][Dim];
+	int C[Dim][Dim];
+	
+	int D[Dim][Dim];
+	int E[Dim][Dim];
+	int F[Dim][Dim];
+
+void mm1()
+{
+	
+
+	int i, j, k;
+
+    for (i = 0; i < Dim; i++)		/* first initialize the matrices */
+	for (j = 0; j < Dim; j++) {
+	     A[i][j] = i;
+	     B[i][j] = j;
+	     C[i][j] = 0;
+	}
+
+    for (i = 0; i < Dim; i++)		/* then multiply them together */
+	for (j = 0; j < Dim; j++)
+            for (k = 0; k < Dim; k++)
+		 C[i][j] += A[i][k] * B[k][j];
+    Exit(C[Dim-1][Dim-1]);		/* and then we're done */
+}
+
+void mm2()
+{
+
+	int i, j, k;
+
+    for (i = 0; i < Dim; i++)		/* first initialize the matrices */
+	for (j = 0; j < Dim; j++) {
+	     D[i][j] = i;
+	     E[i][j] = j;
+	     F[i][j] = 0;
+	}
+
+    for (i = 0; i < Dim; i++)		/* then multiply them together */
+	for (j = 0; j < Dim; j++)
+            for (k = 0; k < Dim; k++)
+		 F[i][j] += D[i][k] * E[k][j];
+    Exit(F[Dim-1][Dim-1]);		/* and then we're done */
+}
+
+int
+main()
+{
+    Fork(mm1);
+	Fork(mm2);
+	Exit(0);
+}
+
+tester.c:
+Does 8 alternating Exec calls on matmult and Fork calls on a function that calls Exec on matmult 
+
+ void test();
+
+int main() {
+
+	test();
+}
+
+void test4()
+{
+	Exec("../test/matmult", 40);
+	Exit(0);
+}
+
+void test(){
+	
+  
+  Fork(test4);
+  Exec("../test/matmult", 40);
+   Fork(test4);
+  Exec("../test/matmult", 40);
+   Fork(test4);
+  Exec("../test/matmult", 40);
+   Fork(test4);
+  Exec("../test/matmult", 40);
+
+  Exit(0);
+}
+
+TESTS FOR NETWORKING: - networktest.c
+
+//Basic Interaction Testing
+to run (network directory): 
+SERVER: nachos -m 0 -server
+CLIENT: nachos -m [client id] -client
+
+//(main)
+int id = CreateLock();
+	int id2, cv_id, mv_id;
+	Acquire(id);
+	Release(id);
+	DestroyLock(id);
+
+	id2 = CreateLock();
+	cv_id = CreateCondition();
+	DestroyCondition(cv_id);
+
+	mv_id = CreateMonitor();
+	DestroyMonitor(mv_id);
+
+//Synch Testing
+
+//(TestSuite())
+int i;
+	int cv;
+	int l2;
+	int mv;
+	int value;
+
+	/* Lock Testing - Create a lock for each client - only iterate on 0th lock*/
+	int lock = CreateLock();
+
+	Write("Starting Client.\n", 20, ConsoleOutput);
+
+	Acquire(0);
+
+	for (i = 0; i < 100000; i++);
+
+	Release(0);
+
+	for (i = 0; i < 100000; i++);
+
+	/* Condition Testing - Create a Condition for each client - only iterate on 0th condition*/
+	cv = CreateCondition();
+	l2 = CreateLock();
+
+	Signal(0, 0);
+	Wait(0, 0);
+	Signal(0, 0);
+
+	Signal(0, 0);
+	Wait(0, 0);
+	Broadcast(0, 0);
+
+	for (i = 0; i < 100000; i++);
+
+	/* Condition Testing - Create a Condition for each client - only iterate on 0th condition*/
+	mv = CreateMonitor();
+
+	SetMonitorVal(mv, 1);
+	value = GetMonitorVal(mv);
+	IntPrint(value);
+
+	for (i = 0; i < 100000; i++);
+
+	DestroyLock(lock);
+	DestroyCondition(cv);
+	DestroyLock(l2);
+	DestroyMonitor(mv);
+======================================================================================================================================
+======================================================================================================================================
+VI. Discussion
+======================================================================================================================================
+======================================================================================================================================
+
+Part 3:
++Experiment expectation
+	When a client utilizes remote procedure calls to make a request to the server, the server retrieves the request and processes it. The system call is designed for the client to make a request over to the server and wait for the server’s response, after the server has parsed the message of the client’s request. 
+
++Experiment result
+	The result designed specific to a test case is expected to be outputted. 
+
++Explanation 
+	The server and remote procedure calls are designed so that they are capable of making the server parse the message of request from a client to properly deliver the correct response to the client.
+
+ 
+

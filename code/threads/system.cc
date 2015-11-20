@@ -8,6 +8,10 @@
 #include "copyright.h"
 #include "system.h"
 
+#ifdef VM
+bool isFIFO;
+#endif
+
 IPT::IPT()
 {
 	ipTable = new IPTEntry[NumPhysPages];
@@ -149,6 +153,32 @@ Initialize(int argc, char **argv)
 	    argCount = 2;
 	}
 #endif
+#ifdef VM
+	if (!strcmp(*argv, "-P"))
+	{
+		if (argc > 1)
+		{
+			if (!strcmp(*(argv + 1), "FIFO")){
+				printf("FIFO!\n");
+				isFIFO = true;
+			}
+			else if (!strcmp(*(argv + 1), "RAND")){
+				printf("RAND!\n");
+				isFIFO = false;
+			}
+			else{
+				printf("Invalid -P command - Running FIFO.\n");
+				isFIFO = true;
+			}
+		}
+		else
+		{
+			printf("Invalid -P command - Running FIFO.\n");
+			isFIFO = true;
+		}
+	}
+#endif
+
     }
 
     DebugInit(debugArgs);			// initialize DEBUG messages
@@ -165,7 +195,7 @@ Initialize(int argc, char **argv)
 	}
 	
 	//swapFile->WriteAt("balls", 100, 0); 
-	swapMap = new BitMap(50000);
+	swapMap = new BitMap(SWAP_SIZE);
 	memoryLock = new Lock("Memory Lock");
 	iptLock = new Lock("IPT Lock");
 	swapLock = new Lock("Swapfile Lock");

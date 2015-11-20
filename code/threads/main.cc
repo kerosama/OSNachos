@@ -177,7 +177,7 @@ main(int argc, char **argv)
 		}
 		else if (!strcmp(*argv, "-client")){
 			printf("?\n");
-			StartProcess("../test/tester");
+			StartProcess("../test/networktest");
 		}
 #endif // NETWORK
     }
