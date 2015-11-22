@@ -1,4 +1,4 @@
-/* tester.c
+/* networktestRelease.c
  *  Simple program to test the file handling system calls
  */
 
@@ -324,14 +324,14 @@ void TestSuite() {
 
 	t1_l1 = CreateLock();
 	t2_l1 = CreateLock();
-	t3_l1 = CreateLock();
 	t3_c1 = CreateCondition();
+	t3_l1 = CreateLock();
 	/*t4_l1 = CreateLock();
 	t5_l1 = CreateLock();
 	t5_l2 = CreateLock();
 
 	t2_c1 = CreateCondition();
-	t3_c1 = CreateCondition();
+	
 	t4_c1 = CreateCondition();
 	t5_c1 = CreateCondition();
 
@@ -339,29 +339,31 @@ void TestSuite() {
 	
 
 	/*Test 1*/
-
-	/*t1_l1 = CreateLock();*/
 	
 	Write("Starting Test1.\n", 22, ConsoleOutput);
 
+	Write("t1_t2 Trying to Acquire Lock.\n", 31, ConsoleOutput);
 	Acquire(t1_l1);
+	Write("t1_t2 Acquired Lock.\n", 22, ConsoleOutput);
 
-	Write("t1_t1 Acquired Lock.\n", 22, ConsoleOutput);
-	for (i = 0; i < 300000; i++);
-	Write("t1_t1 Releasing Lock.\n", 22, ConsoleOutput);
+	for (i = 0; i < 10; i++);
 
+	Write("t1_t2 Releasing Lock.\n", 22, ConsoleOutput);
 	Release(t1_l1);
 
 	Exit(0);
 
-	/*Uncomment for CV Test (Comment above)*/
-	/*Acquire(t3_l1);
-	Write("t3_waiter Acquired Lock.\n", 27, ConsoleOutput);
-	Wait(t3_c1, t3_l1);
-	Write("t3_waiter Freed.\n", 17, ConsoleOutput);
-	Release(t3_l1);
 
-	Exit(0);*/
+	/*Uncomment for CV test (Comment above)*/
+	/*for (i = 0; i < 5; i++);
+
+	Acquire(t3_l1);
+	Write("t3_signaller Acquired Lock.\n", 28, ConsoleOutput);
+	Signal(t3_c1, t3_l1);
+	Write("t3_signaller called Signal.\n", 30, ConsoleOutput);
+	Release(t3_l1);
+	Exit(0);
+	*/
 
 
 	/*Fork(t1_t1);*/

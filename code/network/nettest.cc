@@ -188,13 +188,15 @@ int releaseServerLock(int idOfLock, int idOfMachine){
 		strcpy(ack, "-1");
 		return 1;
 	}
+	printf("WAT\n");
 	//LOCKS STILL IN LOCK QUEUE
-	if (!(lockServerList[idOfLock].msgQueue->IsEmpty())){
+	if (!lockServerList[idOfLock].destMachineIDQueue->IsEmpty()){
+		printf("DOUBLE WAT\n");
 		char *pointerMsg;
 		int *pointerMachineID;
 
 		//REMOVE MESSAGE FROM MESSAGE QUEUE  
-		pointerMsg = (char *)lockServerList[idOfLock].msgQueue->Remove();
+		//pointerMsg = (char *)lockServerList[idOfLock].msgQueue->Remove();
 		//REMOVE MACHINE ID FROM MACHINE ID QUEUE
 		pointerMachineID = (int *)lockServerList[idOfLock].destMachineIDQueue->Remove();
 		//int num = (int)lockServerList[idOfLock].destMachineIDQueue->Remove();
@@ -202,7 +204,9 @@ int releaseServerLock(int idOfLock, int idOfMachine){
 		//sendMessage(*pointerMachineID, pointerMsg);
 
 		strcpy(ack, "1");
+
 		outPktHdr.to = *pointerMachineID; //location
+		//outPktHdr.from = 0;
 		//MAILBOX IS ALWAYS 0                                      
 		outMailHdr.to = *pointerMachineID;
 		outMailHdr.from = 0;

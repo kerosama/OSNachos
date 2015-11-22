@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult matmult2 sort testfiles tester networktest
+all: halt matmult matmult2 sort testfiles tester networktest networktestRelease
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -79,6 +79,12 @@ networktest.o: networktest.c
 networktest: networktest.o start.o
 	$(LD) $(LDFLAGS) start.o networktest.o -o networktest.coff
 	../bin/coff2noff networktest.coff networktest
+
+networktestRelease.o: networktestRelease.c
+	$(CC) $(CFLAGS) -c networktestRelease.c
+networktestRelease: networktestRelease.o start.o
+	$(LD) $(LDFLAGS) start.o networktestRelease.o -o networktestRelease.coff
+	../bin/coff2noff networktestRelease.coff networktestRelease
 
 clean:
 	rm -f *.o *.coff

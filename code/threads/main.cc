@@ -176,8 +176,10 @@ main(int argc, char **argv)
 			doServer();
 		}
 		else if (!strcmp(*argv, "-client")){
-			printf("?\n");
 			StartProcess("../test/networktest");
+		}
+		else if (!strcmp(*argv, "-client2")){
+			StartProcess("../test/networktestRelease");
 		}
 #endif // NETWORK
     }
