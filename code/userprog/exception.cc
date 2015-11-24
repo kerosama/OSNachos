@@ -419,6 +419,7 @@ void Fork_Syscall(int va)
 #ifdef NETWORK
 
 int MsgSentToServer() {
+	printf("SENDING MESSAGE FROM NET_NAME %id!!!\n", net_name);
 	clOutPktHdr.to = 0;
 	clOutPktHdr.from = net_name;
 	clOutMailHdr.to = 0;
@@ -441,7 +442,7 @@ int MsgSentToServer() {
 
 //MESSAGE RECEIVED BY CLIENT FROM SERVER
 void MsgRcvedFromServer() {
-	printf("\n MESSAGE RECEIVED \n");
+	printf("RECEIVED MESSAGE AS NET_NAME %id!!!\n", net_name);
 	postOffice->Receive(net_name, &clInPktHdr, &clInMailHdr, serverResponse);
 
 	printf("Got \"%s\" from %d, box %d\n", clRequest, clInPktHdr.from, clInMailHdr.from);
