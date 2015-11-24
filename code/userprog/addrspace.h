@@ -22,17 +22,12 @@
 #define MaxOpenFiles 256
 #define MaxChildSpaces 256
 
-struct DiskLocation
-{
-	bool swap; //if true, page is in swapfile and no longer in executable
-	int position; //the position of the start of the page in the executable or swapfile
-};
 
 class PTE : public TranslationEntry
 {
 	public:
 		int byteOffset;
-		DiskLocation diskLocation;
+		int diskLocation;//-1-code in executable that can't be changed, 0-executable, 1-swapfile, 2-neither
 };
 
 class AddrSpace {

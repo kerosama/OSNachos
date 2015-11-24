@@ -90,10 +90,29 @@ Also, in the RestoreState function in AddrSpace, the TLB pages were invalidated.
 void AddrSpace::RestoreState() 
 {	
 	IntStatus oldLevel = interrupt->SetLevel(IntOff); 
+		
 	for (int a = 0; a < TLBSize; a++)
 	{
-		machine->tlb[a].valid = false;
+		//transfer dirty bits from tlb to ipt
+		//only pass dirty bit if tlb page is still valid
+		if(machine->tlb[a].valid == true)
+		{
+			for(int i = 0; i < NumPhysPages; i++)
+			{
+				//if tlb page's virtual page is in the tlb, transfer dirty bits
+				if(mIPT->ipTable[i].virtualPage == machine->tlb[a].virtualPage)
+				{	
+					printf("Transferred dirty bit from tlb page %d to IPT page %d (VPN: %d)\n", a, i, machine->tlb[a].virtualPage);				
+					mIPT->ipTable[i].dirty = machine->tlb[a].dirty;
+				}
+			}
+		}
+	
+		//invalidate tlb page because of context switch
+		printf("Invalidated tlb page %d", a);
+		machine->tlb[a].valid = false;		
 	}
+	
 	(void) interrupt->SetLevel(oldLevel);
 }
 
@@ -150,22 +169,149 @@ OpenFile *spaceExec
 A pointer to the executable passed through the AddrSpace constructor. 
 The executable needed to be stored for this part of the project because virtual memory could no longer be preloaded.
 
-struct DiskLocation
-{
-	bool swap;
-	int position;
-};
-A struct to indicate the location of a page table entry's data on disk
+
 
 class PTE : public TranslationEntry
 {
 	public:
+		//location of a page table entry's data on disk (-1 if in executable (code), 0 if in executable (init data), 1 if swapfile, 2 if neither (uninit data))
+		int diskLocation 
+		//position respective to disk location
 		int byteOffset;
-		DiskLocation diskLocation;
 };
-A modified TranslationEntry that contains a byteoffset, which is equivalent to noffH.code.inFileAddr, and a DiskLocation
+A modified TranslationEntry
 
 Handling page faults (with virtual memory):
+
+
+
+IMPORTANT NOTE FOR GRADING!!!!
+
+There are some minor issues when NumPhysPages in machine is set to 32. It mostly works, but there are some arbitrary halts.
+We suspect it has something to do with occasional lost data. FIFO and RAND produce distinct errors.
+Everything works when NumPhysPages is large. Please set it to 1024 to test program outputs. Every test case works.
+
+IMPORTANT NOTE FOR GRADING!!!!
+
+
+
+The addrspace constructor has been modified. Pagetables now have extra properties, which are explained later in this document.
+
+AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+	NoffHeader noffH;
+    unsigned int i, size;
+
+	PTLock = new Lock("Page Table Lock");
+    // Don't allocate the input or output to disk files
+    fileTable.Put(0);
+    fileTable.Put(0);
+
+	spaceExec = executable;
+	//printf("creating new addrSpace");
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    if ((noffH.noffMagic != NOFFMAGIC) && 
+		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
+    	SwapHeader(&noffH);
+    ASSERT(noffH.noffMagic == NOFFMAGIC);
+
+    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
+	
+	printf("Code Size: %d, Init Data Size: %d, Uninit Data Size: %d, Page Size: %d, Total Size: %d\n", noffH.code.size, noffH.initData.size, noffH.uninitData.size, PageSize, size);
+    numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+                                                // we need to increase the size
+						// to leave room for the stack
+    size = numPages * PageSize;
+
+	PageTable = new PTE[numPages];
+
+   // ASSERT(numPages <= NumPhysPages);		// check we're not trying
+						// to run anything too big --
+						// at least until we have
+						// virtual memory
+
+    DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
+					numPages, size);
+	
+	PTLock->Acquire("");
+	for(int i =0 ; i < numPages; i++)
+	{
+		PageTable[i].virtualPage = i;
+		PageTable[i].physicalPage = -1; //initially set without physical page
+					
+		PageTable[i].byteOffset = PageTable[i].virtualPage*PageSize + noffH.code.inFileAddr;
+
+		int loc = i*PageSize; 
+		if(loc < noffH.code.size)
+		{
+			//Page is in the executable code and will never change
+			printf("Code page %d\n", i);
+			PageTable[i].diskLocation -1;
+		}
+		else if(loc < (noffH.code.size + noffH.initData.size))
+		{
+			//Page is in the executable data but can be changed
+			printf("Init data page %d\n", i);
+			PageTable[i].diskLocation = 0;
+		}
+		else
+		{
+			//Page is uninitialized and not in executable
+			printf("Uninit data page %d\n", i);
+			PageTable[i].diskLocation = 2;
+		}
+
+	}
+	PTLock->Release("");
+
+}
+
+
+Also, AddPages() in addrspace, which is used when forking, has been modified. 
+
+void AddrSpace::AddPages()
+{
+	//Add 8 pages to page table
+	PTLock->Acquire("");
+	PTE* tempTable = new PTE[numPages + 8];
+	for(unsigned int i = 0; i < numPages; i++)
+	{
+		
+		tempTable[i].virtualPage = PageTable[i].virtualPage;	
+		tempTable[i].physicalPage = PageTable[i].physicalPage;
+		//tempTable[i].valid = PageTable[i].valid;
+		//tempTable[i].use = PageTable[i].use;
+		//tempTable[i].dirty = PageTable[i].dirty;
+		//tempTable[i].readOnly = PageTable[i].readOnly;
+
+		//copy new values for PTE structure
+		tempTable[i].byteOffset = PageTable[i].byteOffset;
+		tempTable[i].diskLocation = PageTable[i].diskLocation;
+	}
+
+	delete PageTable;
+	PageTable = tempTable;
+
+	for(unsigned int i = numPages; i < (numPages + 8); i++)
+	{
+		
+		PageTable[i].virtualPage = i;
+		PageTable[i].physicalPage = -1;
+		PageTable[i].valid = FALSE;
+		PageTable[i].use = TRUE;
+		PageTable[i].dirty = FALSE;
+		PageTable[i].readOnly = FALSE; 
+
+		printf("here");
+		//new values for pagetable PTE structure
+		PageTable[i].byteOffset = 0;
+		PageTable[i].diskLocation = 2;
+		//PageTable[i].diskLocation.position = PageTable[i].virtualPage;
+	}
+
+	numPages += 8;
+	PTLock->Release("");
+}
+
 
 Before the current TLB page is replaced, the page with the needed virtual memory must be found inside the IPT, rather than the current
 address space's page table.
@@ -175,47 +321,61 @@ The first attempt to find the physical page number is by verifying that one of t
 is owned by the current address space, and is valid. In that case, it is an IPT hit.
 
 void handlePageFault()
-{
-	
+{	
 	int neededVA = machine->ReadRegister(BadVAddrReg);
 	int neededVPN = neededVA / PageSize;
 
+	printf("Needed VPN: %d\n", neededVPN);
 
 	int ppn = -1;
 		
 	iptLock->Acquire("");
 	for(int i = 0; i < NumPhysPages; i++)
 	{
-		if(mIPT->ipTable[i].virtualPage == neededVPN && mIPT->ipTable[i].owner == currentThread->space && mIPT->ipTable[i].valid == true)
+		if(mIPT->ipTable[i].virtualPage == neededVPN)
 		{
-			//IPT hit
-			//wanted physical page is IPT index number
-			ppn = i;
-			break;
+			if(mIPT->ipTable[i].owner == currentThread->space)
+			{
+				if(mIPT->ipTable[i].valid == true)
+				{
+					//IPT hit
+					//wanted physical page is IPT index number
+					printf("IPT hit for virtual page %d\n", neededVPN);
+					ppn = i;
+					break;
+				}
+			}
 		}
 	}
 	iptLock->Release("");
 
+	//IPT miss
 	if(ppn == -1)
-	{
-		//IPT miss
-		//check swap file and executable
+	{		
 		ppn = handleIPTMiss(neededVPN);
 	}
-		
+	
+	
+	//Last step: update TLB
+	//Need to disable interrupts	
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); 
 	if(ppn != -1)
 	{
-		//Ultimately, update TLB
-		//Need to disable interrupts		
-		IntStatus oldLevel = interrupt->SetLevel(IntOff);   
+		//transfer dirty bits from replaced tlb page if still valid
+		for(int i = 0; i < NumPhysPages; i++)
+		{
+			if(machine->tlb[currentTLB].valid == true /*&& machine->tlb[currentTLB].dirty == true*/ && mIPT->ipTable[i].virtualPage == machine->tlb[currentTLB].virtualPage)
+			{
+				printf("Transferred dirty bit from tlb page %d to IPT page %d (VPN: %d)\n", currentTLB, i, machine->tlb[currentTLB].virtualPage); 
+				mIPT->ipTable[i].dirty = machine->tlb[currentTLB].dirty;
+			}
+		}
+	
 		machine->tlb[currentTLB].physicalPage = ppn;
 		machine->tlb[currentTLB].virtualPage = neededVPN;
 		machine->tlb[currentTLB].valid = true;
-		machine->tlb[currentTLB].use = false;
-		machine->tlb[currentTLB].dirty = false;
-		machine->tlb[currentTLB].readOnly = false;			
-		(void) interrupt->SetLevel(oldLevel);
-		//re-enable interrupts
+		machine->tlb[currentTLB].dirty = mIPT->ipTable[ppn].dirty;		
+		
 	}
 	else
 	{
@@ -223,6 +383,7 @@ void handlePageFault()
 	}
 
 	currentTLB = (currentTLB + 1) % TLBSize; //Increment TLB page number for FIFO
+	(void) interrupt->SetLevel(oldLevel);
 
 }
 
@@ -234,11 +395,9 @@ corresponding to the page in virtual memory gets retrieved from the executable o
 
 int handleIPTMiss(int neededVPN)
 {
-	
 	int ppn = mmBitMap->Find();
 	if(ppn == -1)
 	{
-		//printf("out of memory\n");
 		ppn = handleMemoryFull(neededVPN);
 	}	
 
@@ -249,40 +408,128 @@ int handleIPTMiss(int neededVPN)
 	{
 		if(currentThread->space->PageTable[j].virtualPage == neededVPN)
 		{
-			
-			if(currentThread->space->PageTable[j].diskLocation.swap)
+			if(currentThread->space->PageTable[j].diskLocation == 1)
 			{
 				memoryLock->Acquire("");
+				
+				int pg = currentThread->space->PageTable[j].byteOffset/PageSize;
+				printf("Reading from swapfile page %d to main memory...\n", pg);
 				swapFile->ReadAt(&machine->mainMemory[ppn*PageSize], 
-					PageSize, currentThread->space->PageTable[j].diskLocation.position);
-				swapMap->Clear(ppn);
+					PageSize, currentThread->space->PageTable[j].byteOffset);
+
+				//clear the page in swapfile bitmap
+				swapMap->Clear(currentThread->space->PageTable[j].byteOffset/PageSize);
+
+				//came from swap file, so it's dirty
+				mIPT->ipTable[ppn].dirty = true;
+
+				//no longer in swapfile or executable
+				currentThread->space->PageTable[j].diskLocation = 2;
+				memoryLock->Release("");
+			}
+			else if(currentThread->space->PageTable[j].diskLocation == 0)
+			{
+				memoryLock->Acquire("");
+				currentThread->space->spaceExec->ReadAt(&machine->mainMemory[ppn*PageSize], 
+					PageSize, currentThread->space->PageTable[j].byteOffset);
+				printf("Reading from executable virtual page %d to main memory...\n", currentThread->space->PageTable[j].virtualPage);
+				//if(j != 0)
+				//{
+					currentThread->space->PageTable[j].diskLocation = 2;
+				//}
+				
+				mIPT->ipTable[ppn].dirty = false;
 				memoryLock->Release("");
 			}
 			else
 			{
-				memoryLock->Acquire("");
-				currentThread->space->spaceExec->ReadAt(&machine->mainMemory[ppn*PageSize], 
-					PageSize, neededVPN*PageSize + currentThread->space->PageTable[j].byteOffset);
-				memoryLock->Release("");
+				mIPT->ipTable[ppn].dirty = false;
 			}
 			currentThread->space->PageTable[j].physicalPage = ppn;
-			currentThread->space->PageTable[j].valid = true;
-
+			
 			iptLock->Acquire("");
 			mIPT->ipTable[ppn].owner = currentThread->space;
 			mIPT->ipTable[ppn].virtualPage = neededVPN;
 			mIPT->ipTable[ppn].valid = true;
-			mIPT->ipTable[ppn].dirty = false;
+			
 			iptLock->Release("");
 			break;
 		}
 	}	
-	currentThread->space->PTLock->Release("");
+	currentThread->space->PTLock->Release("");	
+
 	return ppn;
 }
 
 Lastly, if the IPT is already full, a page must be evicted by selecting a random page to evict or by using FIFO, which is specified in the command line.
 When a page is evicted, it is checked whether it is dirty. If it is dirty, it is written to the swap file using the WriteToSwap function, in which the dirty memory is written into the swap file.
+
+int handleMemoryFull(int neededVPN)
+{
+#ifdef NETWORK
+	isFIFO = true;
+#else
+	isFIFO = false;
+#endif
+	int evictedPageNum = -1;
+	isFIFO = true;
+	//If isFIFO is true, use FIFO to evict page. Otherwise, use random page selection.
+	if(isFIFO)
+	{
+		//evict the page added the earliest, which is stored in currentIPT
+		evictedPageNum = (currentIPT + 1) % NumPhysPages;
+		currentIPT = evictedPageNum;
+		//printf("currentIPT: %d\n", currentIPT);
+	}
+	else
+	{
+		//randomly determine an IPT page to evict
+		do 
+		{
+			srand(time(NULL));
+			evictedPageNum = rand() % NumPhysPages;
+		}while(evictedPageNum == currentIPT);
+		currentIPT = evictedPageNum;
+	}
+
+	mIPT->ipTable[evictedPageNum].valid = false;
+
+	iptLock->Acquire("");
+	if(mIPT->ipTable[evictedPageNum].dirty == true)
+	{
+		iptLock->Release("");
+		WriteToSwap(evictedPageNum);
+	}
+	else
+	{
+		iptLock->Release("");
+		
+		//Check if evicted page already exists in TLB
+		//If it is in TLB, check if the page is dirty
+		//If the page is dirty, find the physical page in the current process pagetable
+		//If the page exists in the pagetable, write the dirty page to an available spot in the swapfile, using the physical page number
+		
+		//Need to disable interrupts for TLB access				  
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); 
+		for(int i = 0; i < TLBSize; i++)
+		{			
+			if(machine->tlb[i].physicalPage == evictedPageNum)
+			{
+				if(machine->tlb[i].dirty == true)
+				{
+					WriteToSwap(evictedPageNum);
+
+					break;
+				}
+			}
+		}	
+		(void) interrupt->SetLevel(oldLevel);
+		
+	}
+
+	//need to give IPT page to replace
+	return evictedPageNum;
+}
 
 void WriteToSwap(int epn)
 {
@@ -293,20 +540,35 @@ void WriteToSwap(int epn)
 		
 		if(currentThread->space->PageTable[j].physicalPage == epn)
 		{
-			
-			int swapPage = swapMap->Find();
-			if(swapPage == -1)
+			int swapPage;
+			if(mIPT->ipTable[epn].owner->PageTable[j].diskLocation != 1)
 			{
-				printf("Error: swapfile full\n");
-				return;
+				swapPage = swapMap->Find();
+				if(swapPage == -1)
+				{
+					printf("Error: swapfile full\n");
+					return;
+				}
+				
+				mIPT->ipTable[epn].owner->PageTable[j].diskLocation = 1;
+				swapPage = swapPage*PageSize;
+				mIPT->ipTable[epn].owner->PageTable[j].byteOffset = swapPage;
+
+			}
+			else
+			{
+				swapPage = mIPT->ipTable[epn].owner->PageTable[j].byteOffset;
 			}
 			
 			memoryLock->Acquire("");
-			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage*PageSize);
+			swapFile->WriteAt(&machine->mainMemory[epn*PageSize], PageSize, swapPage);
 			memoryLock->Release("");	
 
-			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.swap = TRUE;
-			mIPT->ipTable[epn].owner->PageTable[j].diskLocation.position = swapPage*PageSize;
+
+			//mIPT->ipTable[epn].owner->PageTable[j].physicalPage = -1;
+			//mIPT->ipTable[epn].owner->PageTable[j].valid = false;
+			//mIPT->ipTable[epn].valid = false;
+			printf("added physical page %d from virtual page %d to swapfile page %d\n", epn, j, swapPage/PageSize);
 			break;
 		}
 	}	
@@ -825,8 +1087,10 @@ IV. Implementation =============================================================
 V. Testing
 ======================================================================================================================================
 ======================================================================================================================================
-TESTS FOR VM: -matmult2.c, tester.c
+TESTS FOR VM (in vm directory): -matmult2.c, tester.c
+To compile: gmake
 To run: nachos -x ../test/(filename) -P ("RAND" or "FIFO") -rs (some integer)
+
 
 matmult2.c:
 Tests two instances of matmult with 2 fork calls.
@@ -884,7 +1148,7 @@ void mm2()
 int
 main()
 {
-    Fork(mm1);
+    Fork(mm1); 
 	Fork(mm2);
 	Exit(0);
 }
@@ -920,12 +1184,13 @@ void test(){
   Exit(0);
 }
 
-TESTS FOR NETWORKING: - networktest.c
-
+TESTS FOR NETWORKING (network directory): - networktest.c
+to compile: gmake
 //Basic Interaction Testing
-to run (network directory): 
+to run : 
 SERVER: nachos -m 0 -server
-CLIENT: nachos -m [client id] -client
+CLIENT 1: nachos -m [client id] -client //Mainly tested with client id = 1
+CLIENT 2: nachos -m [other client id] -client2 //Mainly tested with other client id = 2
 
 //(main)
 int id = CreateLock();

@@ -187,8 +187,18 @@ Initialize(int argc, char **argv)
     scheduler = new Scheduler();		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
-	mmBitMap = new BitMap(NumPhysPages);	
+	mmBitMap = new BitMap(NumPhysPages);
+
+	//initialize IPT
 	mIPT = new IPT();
+	for(int i = 0; i < NumPhysPages; i++)
+	{		
+		mIPT->ipTable[i].owner = NULL;
+		mIPT->ipTable[i].valid = false;
+		mIPT->ipTable[i].virtualPage = -1;
+		mIPT->ipTable[i].dirty = false;
+	}
+
 	swapFile = fileSystem->Open("../vm/swapfile");
 	if (swapFile == NULL) {
 		printf("Unable to open file %s\n", "swapfile");
