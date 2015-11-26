@@ -63,7 +63,7 @@ extern void TestSuite(void), Problem2(void), ThreadTest(void), Copy(char *unixFi
 extern void Print(char *file), PerformanceTest(void);
 extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
 //extern void MailTest(int networkID);
-extern void MailTest(void), doServer(void);
+extern void MailTest(void), doServer(int numServers);
 
 //----------------------------------------------------------------------
 // main
@@ -173,7 +173,7 @@ main(int argc, char **argv)
             argCount = 2;
         }
 		else if (!strcmp(*argv, "-server")) {
-			doServer();
+			doServer(atoi(*(argv + 1)));
 		}
 		else if (!strcmp(*argv, "-client")){
 			StartProcess("../test/networktest");

@@ -419,8 +419,15 @@ void Fork_Syscall(int va)
 #ifdef NETWORK
 
 int MsgSentToServer() {
-	printf("SENDING MESSAGE FROM NET_NAME %id!!!\n", net_name);
-	clOutPktHdr.to = 0;
+	printf("SENDING MESSAGE FROM NET_NAME %d!!!\n", net_name);
+	printf("SERVER NUMBERS: %d\n", numberOfServers);
+	srand(time(NULL));
+	rnd = rand() % numberOfServers;
+	printf("NETNAME: %d\n", net_name);
+	//Comment this out for random Server!
+	//rnd = 0;
+
+	clOutPktHdr.to = rnd;
 	clOutPktHdr.from = net_name;
 	clOutMailHdr.to = 0;
 	clOutMailHdr.from = net_name;
@@ -442,10 +449,10 @@ int MsgSentToServer() {
 
 //MESSAGE RECEIVED BY CLIENT FROM SERVER
 void MsgRcvedFromServer() {
-	printf("RECEIVED MESSAGE AS NET_NAME %id!!!\n", net_name);
+	printf("RECEIVED MESSAGE AS NET_NAME %d!!!\n", net_name);
 	postOffice->Receive(net_name, &clInPktHdr, &clInMailHdr, serverResponse);
 
-	printf("Got \"%s\" from %d, box %d\n", clRequest, clInPktHdr.from, clInMailHdr.from);
+	printf("Got \"%s\" from %d, box %d\n", serverResponse, clInPktHdr.from, clInMailHdr.from);
 	fflush(stdout);
 }
 
@@ -546,7 +553,7 @@ void Acquire_Syscall(int id) {
 	char name[2];
 	sprintf(name, "%d", id);
 	CreateMessage("AcquireLock", name);
-
+	printf("LOCK NAME: %s\n", name);
 	//REQUEST ACQUIRE LOCK TO SERVER
 	int successful = MsgSentToServer();
 
@@ -554,6 +561,8 @@ void Acquire_Syscall(int id) {
 		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
 		return;
 	}
+
+	for (int z = 0; z < 100; z++);
 
 	//WAIT FOR RESPONSE	
 	MsgRcvedFromServer();
