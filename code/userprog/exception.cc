@@ -986,11 +986,10 @@ void WriteToSwap(int epn)
 
 int handleMemoryFull(int neededVPN)
 {
-/*#ifdef NETWORK
-	isFIFO = true;
-#else
-	isFIFO = false;
-#endif*/
+#ifdef NETWORK
+	bool isFIFO = true;
+#endif
+
 	int evictedPageNum = -1;
 	//isFIFO = true;
 	//If isFIFO is true, use FIFO to evict page. Otherwise, use random page selection.

@@ -32,7 +32,6 @@ INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
 all: halt matmult matmult2 sort testfiles tester networktest ppo networktestRelease
->>>>>>> 6cd6787f2d9a494d650c9a35b3df3e5e572a77ec
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s

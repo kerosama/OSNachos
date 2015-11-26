@@ -1087,6 +1087,9 @@ IV. Implementation =============================================================
 V. Testing
 ======================================================================================================================================
 ======================================================================================================================================
+First, compile in the test directory: gmake
+If you can't compile, use this: "setenv PATH ../gnu/:$PATH" and then gmake
+
 TESTS FOR VM (in vm directory): -matmult2.c, tester.c
 To compile: gmake
 To run: nachos -x ../test/(filename) -P ("RAND" or "FIFO") -rs (some integer)
