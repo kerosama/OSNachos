@@ -57,6 +57,7 @@ Machine *machine;	// user program memory and registers
 #ifdef NETWORK
 PostOffice *postOffice;
 int net_name;
+int numberOfServers;
 #endif
 
 
@@ -151,6 +152,23 @@ Initialize(int argc, char **argv)
 	    netname = atoi(*(argv + 1));
 		net_name = netname;
 	    argCount = 2;
+		printf("NET NAME: %d\n", net_name);
+	}
+	else if (!strcmp(*argv, "-server"))
+	{
+		numberOfServers++;
+	}
+	else if (!strcmp(*argv, "-client")){
+		if (argc == 1)
+			numberOfServers = 1;
+		else
+			numberOfServers = atoi(*(argv + 1));
+	}
+	else if (!strcmp(*argv, "-client2")){
+		if (argc == 1)
+			numberOfServers = 1;
+		else
+			numberOfServers = atoi(*(argv + 1));
 	}
 #endif
 #ifdef VM

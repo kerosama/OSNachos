@@ -27,46 +27,6 @@
  void TestSuite();
 
 int main() {
-  /*OpenFileId fd;
-  int bytesread;
-  char buf[20];*/
-
-    /*Create("testfile", 8);
-    fd = Open("testfile", 8);
-
-    Write("testing a write\n", 16, fd );
-    Close(fd);
-
-
-    fd = Open("testfile", 8);
-    bytesread = Read( buf, 100, fd );
-    Write( buf, bytesread, ConsoleOutput );
-	Close(fd);*/
-	/*int num;
-	num = Rand(3);
-	if (num == 0)
-		Write("0!\n", 3, ConsoleOutput);
-	else if (num == 1)
-		Write("1!\n", 3, ConsoleOutput);
-	else if (num == 2)
-		Write("2!\n", 3, ConsoleOutput);*/
-
-    /* test1();*/
-	/*test3();*/
-
-	/*int id = CreateLock();
-	int id2, cv_id, mv_id;
-	Acquire(id);
-	Release(id);
-	DestroyLock(id);
-
-	id2 = CreateLock();
-	cv_id = CreateCondition();
-	DestroyCondition(cv_id);
-
-	mv_id = CreateMonitor();
-	DestroyMonitor(mv_id);*/
-
 	TestSuite();
 }
 
@@ -322,34 +282,19 @@ void t6_t1()
 void TestSuite() {
 	int i;
 
-	t1_l1 = CreateLock();
-	t2_l1 = CreateLock();
-	t3_c1 = CreateCondition();
-	t3_l1 = CreateLock();
-	/*t4_l1 = CreateLock();
-	t5_l1 = CreateLock();
-	t5_l2 = CreateLock();
-
-	t2_c1 = CreateCondition();
-	
-	t4_c1 = CreateCondition();
-	t5_c1 = CreateCondition();
-
-	t6_m1 = CreateMonitor();*/
-	
-
 	/*Test 1*/
 	
 	Write("Starting Test1.\n", 22, ConsoleOutput);
 
+	/*Uncomment for Lock test*/
 	Write("t1_t2 Trying to Acquire Lock.\n", 31, ConsoleOutput);
-	Acquire(t1_l1);
+	Acquire(0);
 	Write("t1_t2 Acquired Lock.\n", 22, ConsoleOutput);
 
 	for (i = 0; i < 10; i++);
 
 	Write("t1_t2 Releasing Lock.\n", 22, ConsoleOutput);
-	Release(t1_l1);
+	Release(0);
 
 	Exit(0);
 
@@ -357,73 +302,10 @@ void TestSuite() {
 	/*Uncomment for CV test (Comment above)*/
 	/*for (i = 0; i < 5; i++);
 
-	Acquire(t3_l1);
+	Acquire(2);
 	Write("t3_signaller Acquired Lock.\n", 28, ConsoleOutput);
-	Signal(t3_c1, t3_l1);
+	Signal(t3_c1, 2);
 	Write("t3_signaller called Signal.\n", 30, ConsoleOutput);
-	Release(t3_l1);
-	Exit(0);
-	*/
-
-
-	/*Fork(t1_t1);*/
-
-	/*Fork(t1_t2);*/
-
-	/*Fork(t1_t3);*/
-
-
-	/* Wait for Test 1 to complete
-	for (i = 0; i < 50; i++);
-
-	/* Test 2*/
-
-	/*Write("Starting Test2.\n", 22, ConsoleOutput);
-
-	Fork(t2_t1);
-
-	Fork(t2_t2);
-	
-	/* Wait for Test 2 to complete
-	for (i = 0; i < 50; i++);
-
-	/* Test 3
-
-	Write("Starting Test3.\n", 22, ConsoleOutput);
-
-	for (i = 0; i < 5; i++) {
-		Fork(t3_waiter);
-	}
-	Fork(t3_signaller);
-
-	/* Wait for Test 3 to complete
-	for (i = 0; i < 50; i++);
-
-	/* Test 4
-
-	Write("Starting Test4.\n", 22, ConsoleOutput);
-
-	for (i = 0; i < 5; i++) {
-		Fork(t4_waiter);
-	}
-	Fork(t4_signaller);
-
-	/* Wait for Test 4 to complete
-	for (i = 0; i < 50; i++);
-
-	/* Test 5
-
-	Write("Starting Test5.\n", 22, ConsoleOutput);
-
-	Fork(t5_t1);
-
-	Fork(t5_t2);
-
-	for (i = 0; i < 50; i++);
-
-	/* Test 6 
-
-	Write("Starting Test6.\n", 22, ConsoleOutput);
-
-	Fork(t6_t1);*/
+	Release(2);
+	Exit(0);*/
 }

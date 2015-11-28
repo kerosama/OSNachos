@@ -80,6 +80,7 @@ extern SynchDisk   *synchDisk;
 #include "post.h"
 extern PostOffice* postOffice;
 extern int net_name;
+extern int numberOfServers;
 #endif
 
 
