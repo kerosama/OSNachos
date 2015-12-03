@@ -36,6 +36,10 @@
 #define MV_MAX_COUNT 50
 #define SERVER_MAX_COUNT 5
 
+#define totalCustomerJobs 1
+#define totalApplicationClerkJobs 1
+
+
 class Server{
 	PacketHeader outPktHdr, inPktHdr;
 	MailHeader outMailHdr, inMailHdr;
@@ -52,6 +56,15 @@ class Server{
 	char *msg;
 	bool success;
 	int serverNum, numOfServers;
+
+	int *newSSN;
+
+	int customerJobs;
+	int applicationClerkJobs;
+	//int pictureClearkPositions;
+	//int 
+
+	
 
 	struct MsgContents{
 		//PacketHeader msgPktHdr;
@@ -94,6 +107,13 @@ class Server{
 		int mv;
 		int inUse;
 
+		int applicationClerkStates[totalApplicationClerkJobs];
+		int applicationClerkLineCounts[totalApplicationClerkJobs];
+		int applicationClerkBribeCounts[totalApplicationClerkJobs];
+		List* applicationCustomers;
+		List* applicationBribers;
+
+
 		char* nameOfMV;
 	};
 	int mvServerIDAdder;
@@ -126,7 +146,7 @@ private:
 		strcpy(ack, buff);
 	}
 
-	//SERVER SYSCALL FOR CREATING SERVER
+	//SERVER SYSCALL FOR CREATING SERVER LOCK
 	int createServerLock(const char *lockName, int idOfMachine, bool isClient){
 		printf("Starting createServerLock\n");
 		hasClientData = false;
@@ -1109,6 +1129,22 @@ private:
 		return 1;
 	}
 
+	int AssignJob()
+	{
+		if(customerJobs > 0)
+		{
+			printf("Assigned customer job\n");
+			customerJobs--;
+			return 0;
+		}
+		else if(applicationClerkJobs > 0)
+		{
+			printf("Assigned application clerk job\n");
+			applicationClerkJobs--;
+			return 1;
+		}
+	}
+
 	void CreateMV(const char *name, int idOfMachine)
 	{
 		for (int i = 1; i < mvServerIDAdder; i++){
@@ -1136,6 +1172,18 @@ private:
 
 		mvServerList[mvServerIDAdder].nameOfMV = new char[40];
 		strcpy(mvServerList[mvServerIDAdder].nameOfMV, name);
+
+		//Initialize application clerk lines in server monitor
+		mvServerList[mvServerIDAdder].applicationCustomers = new List;
+		mvServerList[mvServerIDAdder].applicationBribers = new List;
+		for(int i = 0; i < totalApplicationClerkJobs; i++)
+		{
+			mvServerList[mvServerIDAdder].applicationClerkStates[i] = 0;
+			mvServerList[mvServerIDAdder].applicationClerkLineCounts[i] = 0;
+			mvServerList[mvServerIDAdder].applicationClerkBribeCounts[i] = 0;
+			//mvServerList[mvServerIDAdder].applicationCustomers[i] = new List;
+			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
+		}
 
 		printf("MACHINE ID %d CREATED MV %d\n", idOfMachine, mvServerIDAdder);
 		sprintf(ack, "%d", mvServerIDAdder);
@@ -1204,8 +1252,11 @@ private:
 		string strRequest;
 		const char* request; 
 		ss >> strRequest;
+		
 		//message++;
 		request = strRequest.c_str();
+
+		printf("request: %s\n", request);
 		if (!strcmp(request, "CreateLock"))
 		{
 			string name;
@@ -1613,6 +1664,282 @@ private:
 			//SetMV(name.c_str(), atoi(lock_name), idOfMachine);
 			return 1;
 		}
+		else if (!strcmp(request, "SetMonitorVal2"))
+		{
+			string name;
+			string num; 
+
+			
+			printf("Request: SetMonitorVal2\n");
+
+			ss >> name;
+			ss >> num;
+
+			int n = atoi(num.c_str());
+
+			string* params = new string[n];
+			int* p = new int[n];
+			for(int i = 0; i < n; i++)
+			{
+				ss >> params[i];
+				p[i] = atoi(params[i].c_str());
+			}
+
+			if(!strcmp(name.c_str(), "ClerkState"))
+			{
+				int type = p[0];
+				int line = p[1];
+				int state = p[2];
+				switch(type)
+				{
+					case 0:
+						mvServerList[mvServerIDAdder].applicationClerkStates[line] = state;
+					break;
+					case 0:
+						mvServerList[mvServerIDAdder].pictureClerkStates[line] = state;
+					break;
+				}
+			}
+			else if(!strcmp(name.c_str(), "LineCount"))
+			{
+				int type, line, ssn, bribe;
+				type = p[0];
+				line = p[1];
+				ssn = p[2];
+				bribe = p[3];
+
+				switch(type)
+				{
+					case 0:
+						newSSN = new int;
+						*newSSN = ssn;
+						printf("ssn: %d\n", ssn);
+						printf("newSSN: %d\n", *newSSN);
+						if(bribe == 0)
+						{							
+							mvServerList[mvServerIDAdder].applicationClerkLineCounts[line] += 1;
+							//mvServerList[mvServerIDAdder].applicationCustomers->Append((void*)newSSN);
+						}
+						else
+						{
+							mvServerList[mvServerIDAdder].applicationClerkBribeCounts[line] += 1;
+							//mvServerList[mvServerIDAdder].applicationBribers->Append((void*)newSSN);
+						}
+					break;
+					case 1:
+						newSSN = new int;
+						*newSSN = ssn;
+						printf("ssn: %d\n", ssn);
+						printf("newSSN: %d\n", *newSSN);
+						if(bribe == 0)
+						{							
+							mvServerList[mvServerIDAdder].pictureClerkLineCounts[line] += 1;
+							//mvServerList[mvServerIDAdder].pictureCustomers->Append((void*)newSSN);
+						}
+						else
+						{
+							mvServerList[mvServerIDAdder].pictureClerkBribeCounts[line] += 1;
+							//mvServerList[mvServerIDAdder].pictureBribers->Append((void*)newSSN);
+						}
+					break;
+				}
+			}
+
+			sprintf(ack, "%s", "SetMV2");
+			printf("Ack: %s", ack);
+			//SetMV(name.c_str(), atoi(lock_name), idOfMachine);
+			return 1;
+		}
+		else if (!strcmp(request, "GetMonitorVal2"))
+		{
+			string name;
+			string num;
+			
+			printf("Request: GetMonitorVal2\n");
+
+			ss >> name;
+			ss >> num;
+
+			int n = atoi(num.c_str());
+
+			string* params = new string[n];
+			int* p = new int[n];
+			for(int i = 0; i < n; i++)
+			{
+				ss >> params[i];
+				p[i] = atoi(params[i].c_str());
+			}
+
+			int returnVal;
+
+			if(!strcmp(name.c_str(), "ClerkState"))
+			{
+				int type = p[0];
+				int line = p[1];
+				switch(type)
+				{
+					case 0:
+						returnVal = mvServerList[mvServerIDAdder].applicationClerkStates[line];
+					break;
+					case 1:
+						returnVal = mvServerList[mvServerIDAdder].pictureClerkStates[line];
+					break;
+				}
+			}
+			else if(!strcmp(name.c_str(), "LineCount"))
+			{
+				int type, line, bribe;
+				type = p[0];
+				line = p[1];
+				bribe = p[2];
+
+				switch(type)
+				{
+					case 0:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].applicationClerkLineCounts[line];
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].applicationClerkBribeCounts[line];
+						}
+					break;
+					case 1:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].pictureClerkLineCounts[line];
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].pictureClerkBribeCounts[line];
+						}
+					break;
+				}
+			}
+			else if(!strcmp(name.c_str(), "FrontOfLine"))
+			{
+				int type, line, bribe;
+				type = p[0];
+				line = p[1];
+				bribe = p[2];
+
+				switch(type)
+				{
+					case 0:
+						if(bribe == 0)
+						{
+							/*if(!mvServerList[mvServerIDAdder].applicationCustomers[line]->IsEmpty())
+							{
+								returnVal = *((int*)mvServerList[mvServerIDAdder].applicationCustomers[line]->Remove());
+							}*/
+						}
+						else
+						{
+							/*if(!mvServerList[mvServerIDAdder].applicationBribers[line]->IsEmpty())
+							{
+								returnVal = *((int*)mvServerList[mvServerIDAdder].applicationBribers[line]->Remove());
+							}*/
+						}
+					break;
+				}
+			}
+
+			sprintf(ack, "%d", returnVal);
+			printf("Ack: %s", ack);
+			//SetMV(name.c_str(), atoi(lock_name), idOfMachine);
+			return 1;
+		}
+		else if(!strcmp(request, "Job_Request"))
+		{
+			
+			printf("Request: Job Request\n");
+			
+			int job = AssignJob();
+			sprintf(ack, "%d", job);
+			printf("Ack: %s", ack);
+			
+			return 1;
+		}
+		else if(!strcmp(request, "Set_Clerk_State"))
+		{
+			
+			string type;
+			string line;
+			string state;
+			ss >> type;
+			ss >> line;
+			ss >> state;			
+
+			switch(atoi(type.c_str()))
+			{
+				case 0:
+					//applicationClerkStates[atoi(line.c_str())] = atoi(state.c_str());
+				break;
+			}
+			
+			sprintf(ack, "%s %s", "ClerkState", state.c_str());
+			printf("Ack: %s", ack);
+			return 1;
+		}
+		else if(!strcmp(request, "Get_Clerk_State"))
+		{
+			
+			string type;
+			string line;
+			ss >> type;
+			ss >> line;
+			
+			int state;
+			switch(atoi(type.c_str()))
+			{
+				case 0:
+					//state = applicationClerkStates[atoi(line.c_str())];
+				break;
+			}
+
+			sprintf(ack, "%s %d", "ClerkState", state);
+			printf("Ack: %s", ack);
+			
+			return 1;
+		}
+		else if(!strcmp(request, "Increment_Line_Count"))
+		{
+			
+			string type;
+			string line;
+			string diff;
+			string bribe;
+			ss >> type;
+			ss >> line;
+			ss >> diff;
+			ss >> bribe;
+			
+			int l = atoi(line.c_str());
+			int d = atoi(diff.c_str());
+			int b = atoi(bribe.c_str());
+
+			switch(atoi(type.c_str()))
+			{
+				case 0:
+				if(b == 0)
+				{
+					//applicationClerkLineCounts[l] += d;
+					printf("Application Clerk Line %d length increased by %d\n", l, d); 
+				}
+				else if(b == 1)
+				{
+					//applicationClerkBribeCounts[atoi(line.c_str())] += d;
+					printf("Application Clerk Bribe Line %d length increased by %d\n", l, d);
+				}
+				break;
+			}
+			
+			sprintf(ack, "%s", "IncrementLineCount");
+			printf("Ack: %s", ack);
+			return 1;
+		}
+
 		/* swi
 	    switch(desiredRequest){
 
@@ -1642,6 +1969,11 @@ Server::Server(int serverNumber, int totalNumberOfServers)
 	lockServerIDAdder = 0;
 	cvServerIDAdder = 0;
 	mvServerIDAdder = 0;
+
+	customerJobs = totalCustomerJobs;
+	applicationClerkJobs = totalApplicationClerkJobs;
+
+	
 }
 
 void Server::doServer() {
@@ -1661,6 +1993,8 @@ void Server::doServer() {
 
 		//RECEIVING MESSAGE FROM CLIENT
 		postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+
+		printf("%s", buffer);
 		printf("Got \"%s\" from %d, box %d\n", buffer, inPktHdr.from, inMailHdr.from);
 		fflush(stdout);
 
@@ -1695,12 +2029,13 @@ Server *servers[SERVER_MAX_COUNT];
 int numTimes = 0;
 void doServer(int totalServerNum)
 {
-	//numberOfServers++;
 	printf("NET NAME: %d\n", net_name);
 	if (totalServerNum < SERVER_MAX_COUNT)
 	{
-		servers[0] = new Server(net_name, totalServerNum);
-		servers[0]->doServer();
+		servers[numberOfServers] = new Server(net_name, totalServerNum);
+		servers[numberOfServers]->doServer();
+		
+	numberOfServers++;
 	}
 	else
 	{
@@ -1708,6 +2043,7 @@ void doServer(int totalServerNum)
 		//numberOfServers--;
 		interrupt->Halt();
 	}
+
 }
 
 void MailTest(){

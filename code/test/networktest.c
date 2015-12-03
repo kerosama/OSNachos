@@ -292,7 +292,7 @@ void TestSuite() {
 	Write("Starting Test1.\n", 22, ConsoleOutput);
 
 	/*Uncomment for Lock test*/
-	Acquire(t1_l1);
+	/*Acquire(t1_l1);
 
 	Write("t1_t1 Acquired Lock.\n", 22, ConsoleOutput);
 	for (i = 0; i < 300000; i++);
@@ -300,14 +300,14 @@ void TestSuite() {
 
 	Release(t1_l1);
 
-	Exit(0);
+	Exit(0);*/
 
 	/*Uncomment for CV Test (Comment above)*/
-	/*Acquire(t3_l1);
+	Acquire(t3_l1);
 	Write("t3_waiter Acquired Lock.\n", 27, ConsoleOutput);
 	Wait(t3_c1, t3_l1);
 	Write("t3_waiter Freed.\n", 17, ConsoleOutput);
 	Release(t3_l1);
 
-	Exit(0);*/
+	Exit(0);
 }

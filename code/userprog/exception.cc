@@ -54,14 +54,13 @@ struct Lock_Struct {
 struct Lock_Struct mainLock;
 
 
-int num_processes;
+int num_processes = 0;
 class Process
 {
 	public:
 		Process(Thread* thread, AddrSpace* space)
 		{
 			id = num_processes;
-			num_processes++;
 			
 			threads[0] = thread;
 			num_threads = 1;
@@ -79,12 +78,11 @@ class Process
 		}
 	
 		AddrSpace* addrSpace;
-	private:
+
 		int id;
 		
 		int num_threads;
 		Thread* threads[50];
-		//Table* pageTable;
 };
 
 //Private Variables
@@ -324,7 +322,7 @@ void Exit_Syscall(int status) {
 		num_thr--;
 
 		//invalidate ipt entries for this space
-		iptLock->Acquire("");
+		/*iptLock->Acquire("");
 		for(int i = 0; i < NumPhysPages; i++)
 		{
 			if(mIPT->ipTable[i].owner == currentThread->space)
@@ -332,26 +330,26 @@ void Exit_Syscall(int status) {
 				mIPT->ipTable[i].valid = false;
 			}
 		}
-		iptLock->Release("");
+		iptLock->Release("");*/
 
 		currentThread->Finish();		
 	}
 	else
 	{
 		//clear the swapfile
-		char buf[PageSize];
+		/*char buf[PageSize];
 		memset(buf, ' ', PageSize);
 		for(int i = 0; i < SWAP_SIZE; i++)
 		{			
 			swapFile->WriteAt(buf, PageSize, i*PageSize);
-		}
+		}*/
 		//end program
 		interrupt->Halt();
 	}
 }
 
 void exec_thread(int arg) {
-	//printf("running thread - exec.\n");
+	printf("running thread - exec.\n");
 
 	currentThread->space->InitRegisters();		// set the initial register values
 	currentThread->space->RestoreState();		// load page table register
@@ -363,7 +361,6 @@ SpaceId Exec_Syscall(char *name) {
 	*  The process table is updated with the space and a new exec thread is forked.
 	*  Function is based on progtest.cc's StartProcess(char *) function.
 	*/
-	//printf("inside exec syscall\n");
 
 	OpenFile *executable = fileSystem->Open(name);
 	if (executable == NULL) {
@@ -377,19 +374,20 @@ SpaceId Exec_Syscall(char *name) {
 	num_thr++;
 	Process* p = new Process(t, space);
 	processTable[num_processes] = p;
-	//printf("num processes: %d\n", num_processes);
+	num_processes++;
 	t->Fork(exec_thread, 0);
-
-	//printf("finished exec syscall\n");
-	return num_processes - 1;
+	printf("finished exec syscall num_processes: %d\n", num_processes);
+	//currentThread->Yield();
+	return (num_processes - 1);
 }
 
-void kernel_thread(int va)
+void kernel_thread_func(int va)
 {
+	printf("numPages: %d\n", currentThread->space->numPages);
 	machine->WriteRegister(PCReg, va);
 	machine->WriteRegister(NextPCReg, va + 4);
 	currentThread->space->RestoreState();
-	//printf("%d\n", currentThread->space->numPages);
+	
 	machine->WriteRegister(StackReg, currentThread->space->numPages * PageSize - 16);
 	machine->Run();
 }
@@ -400,19 +398,23 @@ void Fork_Syscall(int va)
 	Thread* kernelThread = new Thread("kernel thread");	
 	num_thr++;	
 	kernelThread->space = currentThread->space;
-	if (processTable[current_process_num] == NULL)
+	
+	//needs fixing
+	if (processTable[num_processes] == NULL)
 	{
-		processTable[current_process_num] = new Process(currentThread, currentThread->space);
+		processTable[num_processes] = new Process(currentThread, currentThread->space);
 		
 	}
 	//printf("%d-", currentThread->space->numPages);
-	processTable[current_process_num]->addThread(kernelThread);
-	//printf("%d\n", currentThread->space->numPages);
+	
+	printf("numPages: %d\n", kernelThread->space->numPages);
+	printf("num processes: %d\n", num_processes);
+	processTable[num_processes - 1]->addThread(kernelThread);
 	//printf("%d %d", (int)*func, machine->ReadRegister(4));
+	
+	printf("va: %d\n", va);
+	kernelThread->Fork(kernel_thread_func, va);
 	printf("finished fork syscall\n");
-	//printf("va: %d\n", va);
-	kernelThread->Fork(kernel_thread, va);
-
 
 }
 
@@ -422,8 +424,8 @@ int MsgSentToServer() {
 	printf("SENDING MESSAGE FROM NET_NAME %d!!!\n", net_name);
 	printf("SERVER NUMBERS: %d\n", numberOfServers);
 	srand(time(NULL));
-	rnd = rand() % numberOfServers;
-	printf("NETNAME: %d\n", net_name);
+	//rnd = rand() % numberOfServers;
+	//printf("NETNAME: %d\n", net_name);
 	//Comment this out for random Server!
 	//rnd = 0;
 
@@ -459,18 +461,20 @@ void MsgRcvedFromServer() {
 void CreateMessage(char* request, char* name)
 {
 	char buffer[50];
-
 	//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
 	sprintf(buffer, "%s %s", request, name);
 	int length = strlen(buffer);
 	clRequest = new char[length]; 
 	strcpy(clRequest,buffer); //CREATING CLIENT REQUEST
 }
-
+#endif
 int CreateLock_Syscall() {
+	
+
 	printf("Syscall in Exception.cc - Creating Lock\n");
 	char name[2];
-	sprintf(name, "%d", current_lock_num++);
+	sprintf(name, "%d", current_lock_num);
+#ifdef NETWORK
 	CreateMessage("CreateLock", name);
 
 	//REQUEST CREATE LOCK TO SERVER
@@ -500,10 +504,11 @@ int CreateLock_Syscall() {
 		return -1;
 	}
 
+	current_lock_num++;
 	return atoi(temp.c_str());
 	return requestStatus;
-	
-	/*Lock *temp = new Lock(name);
+#else
+	Lock *temp = new Lock(name);
 	lock_arr[current_lock_num] = temp;
 	lock_in_use[current_lock_num] = false;
 	should_delete_lock[current_lock_num] = false;
@@ -511,13 +516,16 @@ int CreateLock_Syscall() {
 
 	printf("lock name: %s\n", lock_arr[current_lock_num-1]->getName());
 	return (current_lock_num - 1);
-	//return -1;*/
+#endif
 }
+
 
 void DestroyLock_Syscall(int id) {
 	printf("Syscall in Exception.cc - Destroying Lock\n");
 	char name[2]; //LOCK NAME
 	sprintf(name, "%d", id);
+
+	#ifdef NETWORK
 	CreateMessage("DestroyLock", name);
 
 	//REQUEST DESTROY LOCK TO SERVER
@@ -537,21 +545,24 @@ void DestroyLock_Syscall(int id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Destroy Lock Syscall - id does not exist.\n");
-
-	/*if (id > current_lock_num || id < 0) {
+#else
+	if (id > current_lock_num || id < 0) {
 	printf("Error: Destroy Lock Syscall - id does not exist.\n");
 	return;
 	}
 	if (lock_in_use[id])
 	should_delete_lock[id] = true;
 	else
-	delete lock_arr[id];*/
+	delete lock_arr[id];
+#endif
 }
 
 void Acquire_Syscall(int id) {
 	printf("Syscall in Exception.cc - Acquiring Lock\n");
 	char name[2];
 	sprintf(name, "%d", id);
+
+#ifdef NETWORK
 	CreateMessage("AcquireLock", name);
 	printf("LOCK NAME: %s\n", name);
 	//REQUEST ACQUIRE LOCK TO SERVER
@@ -574,13 +585,15 @@ void Acquire_Syscall(int id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
-	/*if (id > current_lock_num || id < 0) 
+#else
+	if (id > current_lock_num || id < 0) 
 	{
 		printf("Error: Acquire Lock Syscall - id does not exist.\n");
 		return;
 	}
 	lock_arr[id]->Acquire("except");
-	lock_in_use[id] = true;*/
+	lock_in_use[id] = true;
+#endif
 }
 
 void Release_Syscall(int id) {
@@ -588,7 +601,7 @@ void Release_Syscall(int id) {
 	char name[2];
 	sprintf(name, "%d", id);
 
-
+#ifdef NETWORK
 	CreateMessage("ReleaseLock", name);
 
 	//REQUEST RELEASE LOCK TO SERVER
@@ -609,21 +622,24 @@ void Release_Syscall(int id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Release Lock Syscall - id does not exist.\n");
-	/*if (id > current_lock_num || id < 0) {
+#else
+	if (id > current_lock_num || id < 0) {
 	printf("Error: Release Lock Syscall - id does not exist.\n");
 	return;
 	}
 	lock_in_use[id] = false;
 	lock_arr[id]->Release("except");
-	printf("2\n");
 	if (should_delete_lock[id])
-	delete lock_arr[id];*/
+	delete lock_arr[id];
+#endif
 }
 
 int CreateCondition_Syscall() {
 	printf("Syscall in Exception.cc - Creating CV\n");
 	char name[2];
-	sprintf(name, "%d", current_cond_num++);
+	sprintf(name, "%d", current_cond_num);
+
+#ifdef NETWORK
 	CreateMessage("CreateCV", name);
 
 	//REQUEST CREATE CV TO SERVER
@@ -652,17 +668,19 @@ int CreateCondition_Syscall() {
 	printf("\n FAILURE TO CREATE LOCK\n");
 	return -1;
 	}
-
-
-	/*Condition *tempCond = new Condition("temp");
+#else
+	Condition *tempCond = new Condition("temp");
 	cond_arr[current_cond_num++] = tempCond;
-	return current_cond_num - 1;*/
+	return current_cond_num - 1;
+#endif
 }
 
 void DestroyCondition_Syscall(int id) {
 	printf("Syscall in Exception.cc - Destroying CV\n");
 	char name[2];
 	sprintf(name, "%d", id);
+
+#ifdef NETWORK
 	CreateMessage("DestroyCV", name);
 
 	//REQUEST DESTROY CV TO SERVER
@@ -683,8 +701,8 @@ void DestroyCondition_Syscall(int id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Destroy Condition Syscall - id does not exist.\n");
-
-	/*if (id > current_cond_num || id < 0) 
+#else
+	if (id > current_cond_num || id < 0) 
 	{
 		printf("Error: Destroy Condition Syscall - id does not exist.\n");
 		return;
@@ -692,7 +710,8 @@ void DestroyCondition_Syscall(int id) {
 	if (cond_in_use[id])
 		should_delete_cond[id] = true;
 	else
-		delete cond_arr[id];*/
+		delete cond_arr[id];
+#endif
 }
 
 void Signal_Syscall(int id, int lock_id) {
@@ -700,6 +719,7 @@ void Signal_Syscall(int id, int lock_id) {
 	char ids[5];
 	sprintf(ids, "%d %d", id, lock_id);
 
+#ifdef NETWORK
 	CreateMessage("SignalCV", ids);
 
 	//REQUEST SIGNAL TO SERVER
@@ -724,21 +744,24 @@ void Signal_Syscall(int id, int lock_id) {
 	printf("Error: Signal Condition Syscall - id does not exist.\n");
 	return;
 	}
-	
-	/*if (lock_id > current_lock_num || lock_id < 0) {
+#else
+	if (lock_id > current_lock_num || lock_id < 0) {
 	printf("Error: Signal Condition Syscall - lock id does not exist.\n");
 	return;
 	}
 	if (should_delete_cond[id])
 		delete cond_arr[id];
 	else
-		cond_arr[id]->Signal("", lock_arr[lock_id]);*/
+		cond_arr[id]->Signal("", lock_arr[lock_id]);
+#endif
 }
 
 void Wait_Syscall(int id, int lock_id) {
 	printf("Syscall in Exception.cc - Waiting CV\n");
 	char ids[5]; //LOCK NAME
 	sprintf(ids, "%d %d", id, lock_id);
+
+#ifdef NETWORK
 	CreateMessage("WaitCV", ids);
 
 	//REQUEST WAIT TO SERVER
@@ -760,7 +783,8 @@ void Wait_Syscall(int id, int lock_id) {
 
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Wait Condition Syscall - id or lock id does not exist.\n");
-	/*if (id > current_cond_num || id < 0) {
+#else
+	if (id > current_cond_num || id < 0) {
 	printf("Error: Wait Condition Syscall - id does not exist.\n");
 	return;
 	}
@@ -771,13 +795,16 @@ void Wait_Syscall(int id, int lock_id) {
 	//if (should_delete_cond[id])
 	//delete cond_arr[id];
 	//else
-	cond_arr[id]->Wait("", lock_arr[lock_id]);*/
+	cond_arr[id]->Wait("", lock_arr[lock_id]);
+#endif
 }
 
 void Broadcast_Syscall(int id, int lock_id) {
 	printf("Syscall in Exception.cc - Broadcast CV\n");
 	char ids[5];
 	sprintf(ids, "%d %d", id, lock_id);
+
+#ifdef NETWORK
 	CreateMessage("BroadcastCV", ids);
 
 	//REQUEST BROADCAST TO SERVER
@@ -798,7 +825,8 @@ void Broadcast_Syscall(int id, int lock_id) {
 	ss >> temp;
 	if (atoi(temp.c_str()) < 0)
 		printf("Error: Broadcast Condition Syscall - id or lock id does not exist.\n");
-	/*if (id > current_cond_num || id < 0) {
+#else
+	if (id > current_cond_num || id < 0) {
 	printf("Error: Broadcast Condition Syscall - id does not exist.\n");
 	return;
 	}
@@ -809,9 +837,12 @@ void Broadcast_Syscall(int id, int lock_id) {
 	//if (should_delete_cond[id])
 	//delete cond_arr[id];
 	//else
-	cond_arr[id]->Broadcast(lock_arr[lock_id]);*/
+	cond_arr[id]->Broadcast(lock_arr[lock_id]);
+#endif
 }
 
+
+#ifdef NETWORK
 // Creates a new monitor (sent to server)
 // returns the index (id) of the monitor
 int CreateMonitor_Syscall()
@@ -936,6 +967,162 @@ void SetMonitorVal_Syscall(int id, int val)
 		printf("Monitor does not exist on Server.\n");
 }
 
+void SetMonitorVal_Syscall2(int type, int num, char* vars)
+{
+	printf("Syscall in Exception.cc - Setting Monitor Value2\n");
+	printf("vars: %s\n", vars);
+	char name[40];
+
+	const char* req;
+	
+	switch(type)
+	{
+		case 0:
+			req = "ClerkState";
+		break;
+		case 1:
+			req = "LineCount";
+		break;
+		case 2:
+			req = "FrontOfLine";
+		break;
+	}
+
+	sprintf(name, "%s %d %s", req, num, vars);
+	CreateMessage("SetMonitorVal2", name);
+
+	//REQUEST SET MONITOR VALUE ON SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("SetMonitorVal2-Received Msg: %s\n", serverResponse);
+}
+
+int GetMonitorVal_Syscall2(int type, int num, char* vars)
+{
+	printf("Syscall in Exception.cc - Setting Monitor Value2\n");
+	printf("vars: %s\n", vars);
+	char name[40];
+
+	const char* req;
+	
+	switch(type)
+	{
+		case 0:
+			req = "ClerkState";
+		break;
+		case 1:
+			req = "LineCount";
+		break;
+	}
+
+	sprintf(name, "%s %d %s", req, num, vars);
+	CreateMessage("GetMonitorVal2", name);
+
+	//REQUEST SET MONITOR VALUE ON SERVER
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	//WAIT FOR RESPONSE	
+	MsgRcvedFromServer();
+	printf("SetMonitorVal2-Received Msg: %s\n", serverResponse);
+
+	int value = atoi(serverResponse);
+	printf("Monitor Value Received: %d\n", value);
+	return value;
+}
+
+
+int JobRequest_Syscall()
+{
+	char name[2];
+	sprintf(name, "%d", net_name);
+
+	printf("Sent Job Request\n");
+	CreateMessage("Job_Request", name);
+
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	MsgRcvedFromServer();
+	
+	int job = atoi(serverResponse);
+	printf("Job Received: %d\n", job);
+
+	return job;
+}
+
+void SetClerkState_Syscall(int type, int index, int state)
+{
+	char buf[5];
+	sprintf(buf, "%d %d %d", type, index, state);
+	CreateMessage("Set_Clerk_State", buf);
+	
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return;
+	}
+
+	MsgRcvedFromServer();
+
+	printf("SetClerkState-Received Msg: %s\n", serverResponse);
+}
+
+int GetClerkState_Syscall(int type, int index)
+{
+	char buf[3];
+	sprintf(buf, "%d %d", type, index);
+	CreateMessage("Get_Clerk_State", buf);
+	
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return -1;
+	}
+
+	MsgRcvedFromServer();
+
+	int state = atoi(serverResponse);
+	printf("Clerk State Received: %d\n", state);
+
+	return state;
+}
+
+void IncrementLineCount_Syscall(int type, int line, int diff, int bribe)
+{
+	char buf[7];
+	sprintf(buf, "%d %d %d %d", type, line, diff, bribe);
+	CreateMessage("Increment_Line_Count", buf);
+	
+	int successful = MsgSentToServer();
+
+	if (successful == -1){
+		printf("FAILURE TO PROPERLY SEND REQUEST TO SERVER\n");
+		return;
+	}
+
+	MsgRcvedFromServer();
+
+	printf("IncrementLineCount-Received Msg: %s\n", serverResponse);
+}
+
 #endif //END #IFDEF NETWORK
 
 int Rand_Syscall(int mod) {
@@ -949,7 +1136,8 @@ void IntPrint_Syscall(int i)
 	printf("%d", i);
 }
 
-void WriteToSwap(int epn)
+
+/*void WriteToSwap(int epn)
 {
 	iptLock->Acquire("");
 	currentThread->space->PTLock->Acquire("");
@@ -991,12 +1179,15 @@ void WriteToSwap(int epn)
 	}	
 	iptLock->Release("");
 	currentThread->space->PTLock->Release("");
-}
+}*/
 
-int handleMemoryFull(int neededVPN)
+/*int handleMemoryFull(int neededVPN)
 {
 #ifdef NETWORK
 	bool isFIFO = true;
+#endif
+#ifndef VM
+	bool isFIFO = false;
 #endif
 
 	int evictedPageNum = -1;
@@ -1057,9 +1248,9 @@ int handleMemoryFull(int neededVPN)
 
 	//need to give IPT page to replace
 	return evictedPageNum;
-}
+}*/
 
-int handleIPTMiss(int neededVPN)
+/*int handleIPTMiss(int neededVPN)
 {	
 	int ppn = mmBitMap->Find();
 	if(ppn == -1)
@@ -1084,7 +1275,7 @@ int handleIPTMiss(int neededVPN)
 					PageSize, currentThread->space->PageTable[j].byteOffset);
 
 				//clear the page in swapfile bitmap
-				swapMap->Clear(currentThread->space->PageTable[j].byteOffset/PageSize);
+				//swapMap->Clear(currentThread->space->PageTable[j].byteOffset/PageSize);
 
 				//came from swap file, so it's dirty
 				mIPT->ipTable[ppn].dirty = true;
@@ -1103,7 +1294,7 @@ int handleIPTMiss(int neededVPN)
 				{
 					currentThread->space->PageTable[j].diskLocation = 2;
 				}*/
-				
+			/*	
 				mIPT->ipTable[ppn].dirty = false;
 				memoryLock->Release("");
 			}
@@ -1122,9 +1313,9 @@ int handleIPTMiss(int neededVPN)
 	currentThread->space->PTLock->Release("");	
 
 	return ppn;
-}
+}*/
 
-void handlePageFault()
+/*void handlePageFault()
 {	
 	int neededVA = machine->ReadRegister(BadVAddrReg);
 	int neededVPN = neededVA / PageSize;
@@ -1168,7 +1359,7 @@ void handlePageFault()
 		//transfer dirty bits from replaced tlb page if still valid
 		for(int i = 0; i < NumPhysPages; i++)
 		{
-			if(machine->tlb[currentTLB].valid == true /*&& machine->tlb[currentTLB].dirty == true*/ && mIPT->ipTable[i].virtualPage == machine->tlb[currentTLB].virtualPage)
+			if(machine->tlb[currentTLB].valid == true /*&& machine->tlb[currentTLB].dirty == true*//* && mIPT->ipTable[i].virtualPage == machine->tlb[currentTLB].virtualPage)
 			{
 				printf("Transferred dirty bit from tlb page %d to IPT page %d (VPN: %d)\n", currentTLB, i, machine->tlb[currentTLB].virtualPage); 
 				mIPT->ipTable[i].dirty = machine->tlb[currentTLB].dirty;
@@ -1188,7 +1379,7 @@ void handlePageFault()
 
 	currentTLB = (currentTLB + 1) % TLBSize; //Increment TLB page number for FIFO
 	(void) interrupt->SetLevel(oldLevel);
-}
+}*/
 
 void ExceptionHandler(ExceptionType which) {
     
@@ -1198,6 +1389,7 @@ void ExceptionHandler(ExceptionType which) {
 		
 		int rv=0; 	// the return value from a syscall
 
+		char* data;
 		switch (type) 
 		{
 			default:
@@ -1232,7 +1424,9 @@ void ExceptionHandler(ExceptionType which) {
 			break;
 			case SC_Yield:
 			DEBUG('a', "Yield syscall.\n");
+			printf("yielding\n");
 			currentThread->Yield();
+
 			break;
 			case SC_Exit:
 			DEBUG('a', "Exit syscall.\n");
@@ -1240,7 +1434,7 @@ void ExceptionHandler(ExceptionType which) {
 			break;
 			case SC_Exec:
 			DEBUG('a', "Exec syscall.\n");
-			char* data = new char[machine->ReadRegister(5)];
+			data = new char[machine->ReadRegister(5)];
 			int x = copyin(machine->ReadRegister(4), machine->ReadRegister(5), data);
 			rv = Exec_Syscall(data);
 			break;
@@ -1248,11 +1442,12 @@ void ExceptionHandler(ExceptionType which) {
 			DEBUG('a', "Fork syscall.\n");
 			Fork_Syscall(machine->ReadRegister(4));
 			break;
-#ifdef NETWORK
+//
 			case SC_CreateLock:
 			DEBUG('a', "CreateLock syscall.\n");
 			rv = CreateLock_Syscall();
 			break;
+			
 			case SC_DestroyLock:
 			DEBUG('a', "DestroyLock syscall.\n");
 			DestroyLock_Syscall(machine->ReadRegister(4));
@@ -1274,45 +1469,67 @@ void ExceptionHandler(ExceptionType which) {
 			DestroyCondition_Syscall(machine->ReadRegister(4));
 			break;
 			case SC_Signal:
-			DEBUG('a', "Signal syscall.\n");
-			Signal_Syscall(machine->ReadRegister(4), 
+				DEBUG('a', "Signal syscall.\n");
+				Signal_Syscall(machine->ReadRegister(4), 
 					machine->ReadRegister(5));
 			break;
 			case SC_Wait:
-			DEBUG('a', "Wait syscall.\n");
-			Wait_Syscall(machine->ReadRegister(4), 
+				DEBUG('a', "Wait syscall.\n");
+				Wait_Syscall(machine->ReadRegister(4), 
 					machine->ReadRegister(5));
 			break;
 			case SC_Broadcast:
-			DEBUG('a', "Broadcast syscall.\n");
-			Broadcast_Syscall(machine->ReadRegister(4),
+				DEBUG('a', "Broadcast syscall.\n");
+				Broadcast_Syscall(machine->ReadRegister(4),
 					machine->ReadRegister(5));
 			break;
+		
+#ifdef NETWORK
 			case SC_CreateMonitor:
-			DEBUG('a', "CreateMonitor syscall.\n");
-			rv = CreateMonitor_Syscall();
+				DEBUG('a', "CreateMonitor syscall.\n");
+				rv = CreateMonitor_Syscall();
 			break;
 			case SC_DestroyMonitor:
-			DEBUG('a', "DestroyMonitor syscall.\n");
-			DestroyMonitor_Syscall(machine->ReadRegister(4));
+				DEBUG('a', "DestroyMonitor syscall.\n");
+				DestroyMonitor_Syscall(machine->ReadRegister(4));
 			break;
 			case SC_GetMonitorVal:
-			DEBUG('a', "GetMonitorVal syscall.\n");
-			rv = GetMonitorVal_Syscall(machine->ReadRegister(4));
+				DEBUG('a', "SetMonitorVal syscall.\n");
+				data = new char[machine->ReadRegister(5)*2 - 1];
+				copyin(machine->ReadRegister(6), machine->ReadRegister(5)*2 - 1, data);
+				printf("data: %s\n", data);
+				rv = GetMonitorVal_Syscall2(machine->ReadRegister(4), machine->ReadRegister(5), data);
 			break;
 			case SC_SetMonitorVal:
-			DEBUG('a', "SetMonitorVal syscall.\n");
-			SetMonitorVal_Syscall(machine->ReadRegister(4),
-				machine->ReadRegister(5));
+				DEBUG('a', "SetMonitorVal syscall.\n");
+				data = new char[machine->ReadRegister(5)*2 - 1];
+				copyin(machine->ReadRegister(6), machine->ReadRegister(5)*2 - 1, data);
+				printf("data: %s\n", data);
+				SetMonitorVal_Syscall2(machine->ReadRegister(4), machine->ReadRegister(5), data);
 			break;
+			case SC_JobRequest:
+				DEBUG('a', "Job Request syscall.\n");
+				rv = JobRequest_Syscall();
+			break;
+			case SC_SetClerkState:
+				SetClerkState_Syscall(machine->ReadRegister(4), machine->ReadRegister(5), machine->ReadRegister(6));
+			break;
+			case SC_GetClerkState:
+				rv = GetClerkState_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_IncrementLineCount:
+				IncrementLineCount_Syscall(machine->ReadRegister(4), machine->ReadRegister(5), machine->ReadRegister(6), machine->ReadRegister(7));
+			break;
+
+
 #endif //NETWORK
 			case SC_Rand:
-			DEBUG('a', "Rand syscall.\n");
-			rv = Rand_Syscall(machine->ReadRegister(4));
+				DEBUG('a', "Rand syscall.\n");
+				rv = Rand_Syscall(machine->ReadRegister(4));
 			break;
 			case SC_IntPrint:
-			DEBUG('a', "IntPrint syscall.\n");
-			IntPrint_Syscall(machine->ReadRegister(4));
+				DEBUG('a', "IntPrint syscall.\n");
+				IntPrint_Syscall(machine->ReadRegister(4));
 			break;
 		}
 
@@ -1325,7 +1542,8 @@ void ExceptionHandler(ExceptionType which) {
     } 
 	else if(which == PageFaultException) 
 	{
-		handlePageFault();
+		//printf("what?\n");
+		//handlePageFault();
 		return;
 	} 
 	else 

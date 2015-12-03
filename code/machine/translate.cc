@@ -205,6 +205,23 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 
 // check for alignment errors
     if (((size == 4) && (virtAddr & 0x3)) || ((size == 2) && (virtAddr & 0x1))){
+		
+		if(size == 4)
+		{
+			printf("size = 4\n");
+		}
+		else if(virtAddr & 0x3)
+		{
+			printf("virtaddr 3\n");
+		}
+		else if(size == 2)
+		{
+			printf("size = 2\n");
+		}
+		else if(virtAddr & 0x3)
+		{
+			printf("virtaddr 1\n");
+		}
 	DEBUG('a', "alignment problem at %d, size %d!\n", virtAddr, size);
 	return AddressErrorException;
     }
@@ -220,6 +237,7 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     
     if (tlb == NULL) {		// => page table => vpn is index into table
 	if (vpn >= pageTableSize) {
+		printf("not ok %d\n", vpn);
 	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
 			virtAddr, pageTableSize);
 	    return AddressErrorException;

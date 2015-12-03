@@ -44,6 +44,10 @@
 #define SC_DestroyMonitor 23
 #define SC_GetMonitorVal 24
 #define SC_SetMonitorVal 25
+#define SC_JobRequest 26
+#define SC_SetClerkState 27
+#define SC_GetClerkState 28
+#define SC_IncrementLineCount 29
 
 #define MAXFILENAME 256
 
@@ -74,7 +78,7 @@ typedef int SpaceId;
 /* Run the executable, stored in the Nachos file "name", and return the 
  * address space identifier
  */
-SpaceId Exec(char* name, int len);
+SpaceId Exec(char *name, int len);
  
 /* Only return once the the user program "id" has finished.  
  * Return the exit status.
@@ -134,12 +138,12 @@ void Close(OpenFileId id);
 /* Fork a thread to run a procedure ("func") in the *same* address space 
  * as the current thread.
  */
-void Fork(int va);
+void Fork(void (*func)());
 
 /* Yield the CPU to another runnable thread, whether in this address space 
  * or not. 
  */
-void Yield();		
+void Yield();	
 
 /* Create a lock for use within a user program. Returns the id of the lock and takes
  * in what to name the lock as a parameter.
@@ -199,10 +203,18 @@ int CreateMonitor();
 void DestroyMonitor(int id);
 
 /*Returns the value of a monitor specified at index id*/
-int GetMonitorVal(int id);
+int GetMonitorVal(int type, int num, char* vars);
 
 /*Set the monitor id's value to val*/
-void SetMonitorVal(int id, int val);
+void SetMonitorVal(int type, int num, char* vars);
+
+int JobRequest();
+
+void SetClerkState(int type, int state, int line);
+
+int GetClerkState(int type, int state);
+
+int IncrementLineCount(int type, int line, int diff, int bribe);
 
 #endif /* IN_ASM */
 

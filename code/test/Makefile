@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult matmult2 sort testfiles tester networktest ppo networktestRelease
+all: halt matmult matmult2 sort testfiles ppo_main customer ApplicationClerk PictureClerk PassportClerk Cashier
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -67,30 +67,43 @@ testfiles.o: testfiles.c
 testfiles: testfiles.o start.o
 	$(LD) $(LDFLAGS) start.o testfiles.o -o testfiles.coff
 	../bin/coff2noff testfiles.coff testfiles
-
-tester.o: tester.c
-	$(CC) $(CFLAGS) -c tester.c
-tester: tester.o start.o
-	$(LD) $(LDFLAGS) start.o tester.o -o tester.coff
-	../bin/coff2noff tester.coff tester
 	
-networktest.o: networktest.c
-	$(CC) $(CFLAGS) -c networktest.c
-networktest: networktest.o start.o
-	$(LD) $(LDFLAGS) start.o networktest.o -o networktest.coff
-	../bin/coff2noff networktest.coff networktest
-
-ppo.o: ppo.c
-	$(CC) $(CFLAGS) -c ppo.c
-ppo: ppo.o start.o
-	$(LD) $(LDFLAGS) start.o ppo.o -o ppo.coff
-	../bin/coff2noff ppo.coff ppo
 	
-networktestRelease.o: networktestRelease.c
-	$(CC) $(CFLAGS) -c networktestRelease.c
-networktestRelease: networktestRelease.o start.o
-	$(LD) $(LDFLAGS) start.o networktestRelease.o -o networktestRelease.coff
-	../bin/coff2noff networktestRelease.coff networktestRelease
-
+customer.o: customer.c
+	$(CC) $(CFLAGS) -c customer.c
+customer: customer.o start.o
+	$(LD) $(LDFLAGS) start.o customer.o -o customer.coff
+	../bin/coff2noff customer.coff customer
+	
+ppo_main.o: ppo_main.c
+	$(CC) $(CFLAGS) -c ppo_main.c
+ppo_main: ppo_main.o start.o
+	$(LD) $(LDFLAGS) start.o ppo_main.o -o ppo_main.coff
+	../bin/coff2noff ppo_main.coff ppo_main
+	
+ApplicationClerk.o: ApplicationClerk.c
+	$(CC) $(CFLAGS) -c ApplicationClerk.c
+ApplicationClerk: ApplicationClerk.o start.o
+	$(LD) $(LDFLAGS) start.o ApplicationClerk.o -o ApplicationClerk.coff
+	../bin/coff2noff ApplicationClerk.coff ApplicationClerk
+	
+PictureClerk.o: PictureClerk.c
+	$(CC) $(CFLAGS) -c PictureClerk.c
+PictureClerk: PictureClerk.o start.o
+	$(LD) $(LDFLAGS) start.o PictureClerk.o -o PictureClerk.coff
+	../bin/coff2noff PictureClerk.coff PictureClerk
+	
+PassportClerk.o: PassportClerk.c
+	$(CC) $(CFLAGS) -c PassportClerk.c
+PassportClerk: PassportClerk.o start.o
+	$(LD) $(LDFLAGS) start.o PassportClerk.o -o PassportClerk.coff
+	../bin/coff2noff PassportClerk.coff PassportClerk
+	
+Cashier.o: Cashier.c
+	$(CC) $(CFLAGS) -c Cashier.c
+Cashier: Cashier.o start.o
+	$(LD) $(LDFLAGS) start.o Cashier.o -o Cashier.coff
+	../bin/coff2noff Cashier.coff Cashier
+	
 clean:
 	rm -f *.o *.coff

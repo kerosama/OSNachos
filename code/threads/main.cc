@@ -181,6 +181,9 @@ main(int argc, char **argv)
 		else if (!strcmp(*argv, "-client2")){
 			StartProcess("../test/networktestRelease");
 		}
+		else if (!strcmp(*argv, "-ppo")){
+			StartProcess("../test/ppo_main");
+		}
 #endif // NETWORK
     }
 

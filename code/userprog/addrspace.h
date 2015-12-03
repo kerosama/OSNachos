@@ -46,7 +46,7 @@ class AddrSpace {
 
 	void AddPages(); 	//Adds 8 pages when a new thread joins the space
 
-	PTE *PageTable;	// Assume linear page table translation
+	TranslationEntry *PageTable;	// Assume linear page table translation
 					// for now!
 	
 	OpenFile *spaceExec; //store constructor executable as member variable

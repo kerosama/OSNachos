@@ -129,7 +129,7 @@ Yield:
 	syscall
 	j	$31
 	.end Yield
-
+	
 	.globl CreateLock
 	.ent	CreateLock
 CreateLock:
@@ -250,7 +250,37 @@ SetMonitorVal:
 	j	$31
 	.end SetMonitorVal
 
+	.globl JobRequest
+	.ent	JobRequest
+JobRequest:
+	addiu $2,$0,SC_JobRequest
+	syscall
+	j	$31
+	.end JobRequest
 
+	.globl SetClerkState
+	.ent	SetClerkState
+SetClerkState:
+	addiu $2,$0,SC_SetClerkState
+	syscall
+	j	$31
+	.end SetClerkState
+
+	.globl GetClerkState
+	.ent	GetClerkState
+GetClerkState:
+	addiu $2,$0,SC_GetClerkState
+	syscall
+	j	$31
+	.end GetClerkState
+
+	.globl IncrementLineCount
+	.ent	IncrementLineCount
+IncrementLineCount:
+	addiu $2,$0,SC_IncrementLineCount
+	syscall
+	j	$31
+	.end IncrementLineCount
 
 /* dummy function to keep gcc happy */
         .globl  __main

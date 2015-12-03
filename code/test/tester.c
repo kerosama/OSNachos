@@ -13,21 +13,18 @@ int main() {
 
 void test4()
 {
-	Exec("../test/matmult", 40);
+	Exec("../test/matmult", 40, 0);
 	Exit(0);
 }
 
 void test(){
-	
-  
-  Fork(test4);
-  Exec("../test/matmult", 40);
-   Fork(test4);
-  Exec("../test/matmult", 40);
-   Fork(test4);
-  Exec("../test/matmult", 40);
-   Fork(test4);
-  Exec("../test/matmult", 40);
+	int i;
+
+	for(i = 0; i < 4; i++)
+	{
+		Exec("../test/matmult", 40, 0);
+		Yield();
+	}
 
   Exit(0);
 }

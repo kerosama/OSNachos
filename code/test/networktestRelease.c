@@ -287,7 +287,7 @@ void TestSuite() {
 	Write("Starting Test1.\n", 22, ConsoleOutput);
 
 	/*Uncomment for Lock test*/
-	Write("t1_t2 Trying to Acquire Lock.\n", 31, ConsoleOutput);
+	/*Write("t1_t2 Trying to Acquire Lock.\n", 31, ConsoleOutput);
 	Acquire(0);
 	Write("t1_t2 Acquired Lock.\n", 22, ConsoleOutput);
 
@@ -296,16 +296,16 @@ void TestSuite() {
 	Write("t1_t2 Releasing Lock.\n", 22, ConsoleOutput);
 	Release(0);
 
-	Exit(0);
+	Exit(0);*/
 
 
 	/*Uncomment for CV test (Comment above)*/
-	/*for (i = 0; i < 5; i++);
+	for (i = 0; i < 5; i++);
 
 	Acquire(2);
 	Write("t3_signaller Acquired Lock.\n", 28, ConsoleOutput);
 	Signal(t3_c1, 2);
 	Write("t3_signaller called Signal.\n", 30, ConsoleOutput);
 	Release(2);
-	Exit(0);*/
+	Exit(0);
 }
