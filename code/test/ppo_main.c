@@ -83,18 +83,18 @@ int main()
 				Write("Exec customer\n", 16, ConsoleOutput);
 				Exec("../test/customer", 40);
 				clientJobs++;
-				/*Yield();
-			}
+				Yield();
+			/*}
 			else if(newJob == 1)
 			{*/
 				Write("Exec application Clerk\n", 24, ConsoleOutput);
 				Exec("../test/ApplicationClerk", 40);
 				clientJobs++;
-
+				Yield();
 				Exec("../test/PictureClerk", 40);
-
+				Yield();
 				Exec("../test/PassportClerk", 40);
-
+				Yield();
 				Exec("../test/Cashier", 40);
 			/*	Yield();
 			}

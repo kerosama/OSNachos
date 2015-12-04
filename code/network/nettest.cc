@@ -38,7 +38,9 @@
 
 #define totalCustomerJobs 1
 #define totalApplicationClerkJobs 1
-
+#define totalPictureClerkJobs 1
+#define totalPassportClerkJobs 1
+#define totalCashierJobs 1
 
 class Server{
 	PacketHeader outPktHdr, inPktHdr;
@@ -113,6 +115,23 @@ class Server{
 		List* applicationCustomers;
 		List* applicationBribers;
 
+		int pictureClerkStates[totalPictureClerkJobs];
+		int pictureClerkLineCounts[totalPictureClerkJobs];
+		int pictureClerkBribeCounts[totalPictureClerkJobs];
+		List* pictureCustomers;
+		List* pictureBribers;
+
+		int passportClerkStates[totalPassportClerkJobs];
+		int passportClerkLineCounts[totalPassportClerkJobs];
+		int passportClerkBribeCounts[totalPassportClerkJobs];
+		List* passportCustomers;
+		List* passportBribers;
+
+		int cashierStates[totalCashierJobs];
+		int cashierLineCounts[totalCashierJobs];
+		int cashierBribeCounts[totalCashierJobs];
+		List* cashierCustomers;
+		List* cashierBribers;
 
 		char* nameOfMV;
 	};
@@ -1185,6 +1204,42 @@ private:
 			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
 		}
 
+		//Initialize picture clerk lines in server monitor
+		mvServerList[mvServerIDAdder].pictureCustomers = new List;
+		mvServerList[mvServerIDAdder].pictureBribers = new List;
+		for(int i = 0; i < totalPictureClerkJobs; i++)
+		{
+			mvServerList[mvServerIDAdder].pictureClerkStates[i] = 0;
+			mvServerList[mvServerIDAdder].pictureClerkLineCounts[i] = 0;
+			mvServerList[mvServerIDAdder].pictureClerkBribeCounts[i] = 0;
+			//mvServerList[mvServerIDAdder].applicationCustomers[i] = new List;
+			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
+		}
+
+		//Initialize application clerk lines in server monitor
+		mvServerList[mvServerIDAdder].passportCustomers = new List;
+		mvServerList[mvServerIDAdder].passportBribers = new List;
+		for(int i = 0; i < totalPassportClerkJobs; i++)
+		{
+			mvServerList[mvServerIDAdder].passportClerkStates[i] = 0;
+			mvServerList[mvServerIDAdder].passportClerkLineCounts[i] = 0;
+			mvServerList[mvServerIDAdder].passportClerkBribeCounts[i] = 0;
+			//mvServerList[mvServerIDAdder].applicationCustomers[i] = new List;
+			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
+		}
+
+		//Initialize application clerk lines in server monitor
+		mvServerList[mvServerIDAdder].cashierCustomers = new List;
+		mvServerList[mvServerIDAdder].cashierBribers = new List;
+		for(int i = 0; i < totalCashierJobs; i++)
+		{
+			mvServerList[mvServerIDAdder].cashierStates[i] = 0;
+			mvServerList[mvServerIDAdder].cashierLineCounts[i] = 0;
+			mvServerList[mvServerIDAdder].cashierBribeCounts[i] = 0;
+			//mvServerList[mvServerIDAdder].applicationCustomers[i] = new List;
+			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
+		}
+
 		printf("MACHINE ID %d CREATED MV %d\n", idOfMachine, mvServerIDAdder);
 		sprintf(ack, "%d", mvServerIDAdder);
 		mvServerIDAdder++;
@@ -1695,7 +1750,7 @@ private:
 					case 0:
 						mvServerList[mvServerIDAdder].applicationClerkStates[line] = state;
 					break;
-					case 0:
+					case 1:
 						mvServerList[mvServerIDAdder].pictureClerkStates[line] = state;
 					break;
 				}
