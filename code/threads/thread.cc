@@ -64,6 +64,12 @@ Thread::~Thread()
 	DeallocBoundedArray((char *) stack, StackSize * sizeof(int));
 }
 
+// Setter & Getter for Mailbox number
+void
+Thread::SetMailboxNumber(int num) { mailboxNumber = num; }
+int
+Thread::GetMailboxNumber() { return mailboxNumber; }
+
 //----------------------------------------------------------------------
 // Thread::Fork
 // 	Invoke (*func)(arg), allowing caller and callee to execute 

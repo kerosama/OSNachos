@@ -79,6 +79,7 @@ class Thread {
     // THEY MUST be in this position for SWITCH to work.
     int* stackTop;			 // the current stack pointer
     int machineState[MachineStateSize];  // all registers except for stackTop
+	int mailboxNumber;
 
   public:
     Thread(char* debugName);		// initialize a Thread 
@@ -88,7 +89,8 @@ class Thread {
 					// is called
 
     // basic thread operations
-
+	void SetMailboxNumber(int num);
+	int GetMailboxNumber();
     void Fork(VoidFunctionPtr func, int arg); 	// Make thread run (*func)(arg)
     void Yield();  				// Relinquish the CPU if any 
 						// other thread is runnable

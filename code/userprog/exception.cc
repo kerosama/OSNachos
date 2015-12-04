@@ -107,6 +107,8 @@ int current_cond_num = 0;
 
 int current_monitor_num = 0;
 
+int current_mailbox_number = 0;
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -375,6 +377,7 @@ SpaceId Exec_Syscall(char *name) {
 	Process* p = new Process(t, space);
 	processTable[num_processes] = p;
 	num_processes++;
+	t->SetMailboxNumber(current_mailbox_number++);
 	t->Fork(exec_thread, 0);
 	printf("finished exec syscall num_processes: %d\n", num_processes);
 	//currentThread->Yield();
@@ -431,8 +434,10 @@ int MsgSentToServer() {
 
 	clOutPktHdr.to = rnd;
 	clOutPktHdr.from = net_name;
+	//clOutMailHdr.to = 0;
 	clOutMailHdr.to = 0;
-	clOutMailHdr.from = net_name;
+	//clOutMailHdr.from = net_name;
+	clOutMailHdr.from = currentThread->GetMailboxNumber();
 
 	clOutMailHdr.length = strlen(clRequest) + 1;
 
@@ -452,7 +457,7 @@ int MsgSentToServer() {
 //MESSAGE RECEIVED BY CLIENT FROM SERVER
 void MsgRcvedFromServer() {
 	printf("RECEIVED MESSAGE AS NET_NAME %d!!!\n", net_name);
-	postOffice->Receive(net_name, &clInPktHdr, &clInMailHdr, serverResponse);
+	postOffice->Receive(currentThread->GetMailboxNumber(), &clInPktHdr, &clInMailHdr, serverResponse);
 
 	printf("Got \"%s\" from %d, box %d\n", serverResponse, clInPktHdr.from, clInMailHdr.from);
 	fflush(stdout);

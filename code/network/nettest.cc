@@ -54,7 +54,9 @@ class Server{
 
 	int farAddr;
 
-	int *toAddress;
+	int fromMailbox;
+	int currentMailboxUsed;
+	int *toAddress, *toMailbox;
 	char *msg;
 	bool success;
 	int serverNum, numOfServers;
@@ -83,6 +85,7 @@ class Server{
 		int lockID;
 
 		List* destMachineIDQueue; //DESTINATION
+		List* destMailboxQueue;
 		List* msgQueue;
 		LockStatus lockStatus;
 	};
@@ -99,6 +102,7 @@ class Server{
 
 		List *msgQueue;
 		List *destMachineIDQueue; //DESTINATION
+		List* destMailboxQueue;
 	};
 	int cvServerIDAdder;
 	ServerCV cvServerList[CV_MAX_COUNT];
@@ -160,6 +164,17 @@ private:
 
 		//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
 		sprintf(buff, "%s %s %s %s", request, clName, varName, varName2);
+		int length = strlen(buff);
+		ack = new char[length];
+		strcpy(ack, buff);
+	}
+
+	void CreateMessage(char* request, char* clName, char* varName, char* varName2, char* varName3)
+	{
+		char buff[50];
+
+		//CREATE MESSAGE IN PARTICULAR FORMAT TO BE SENT OVER TO SERVER 
+		sprintf(buff, "%s %s %s %s", request, clName, varName, varName2, varName3);
 		int length = strlen(buff);
 		ack = new char[length];
 		strcpy(ack, buff);
@@ -276,6 +291,7 @@ private:
 		lockServerList[lockServerIDAdder].toBeDeleted = false;
 
 		lockServerList[lockServerIDAdder].destMachineIDQueue = new List;
+		lockServerList[lockServerIDAdder].destMailboxQueue = new List;
 		lockServerList[lockServerIDAdder].msgQueue = new List;
 		lockServerList[lockServerIDAdder].lockStatus = FREE;
 		lockServerList[lockServerIDAdder].lockID = atoi(lockName);
@@ -321,9 +337,11 @@ private:
 			char buff[50];
 			char clName[2];
 			char lockName[2]; //LOCK ID
+			char mailboxName[2];
 			sprintf(clName, "%d", idOfMachine);
 			sprintf(lockName, "%d", idOfLock);
-			CreateMessage("servAcquireLock", clName, lockName);
+			sprintf(mailboxName, "%d", fromMailbox);
+			CreateMessage("servAcquireLock", clName, lockName, mailboxName);
 			int acquired = 0;
 			for (int x = 0; x < numOfServers; x++)
 			{
@@ -389,9 +407,12 @@ private:
 			strcpy(ack, "1");
 			toAddress = new int;
 			*toAddress = idOfMachine;
+			toMailbox = new int;
+			*toMailbox = 
 			shouldMsgClient = false;
 			//ADD MESSAGE TO THE WAITING QUEUE IF LOCK IS NOT AVAILABLE
 			lockServerList[lockIndex].destMachineIDQueue->Append((void *)toAddress);
+			lockServerList[lockServerIDAdder].destMailboxQueue->Append((void *)toMailbox);
 
 			printf("MACHINE ID %d IS PUT TO WAIT QUEUE SINCE LOCK IS UNAVAIALBLE\n", idOfMachine);
 
@@ -488,16 +509,18 @@ private:
 		if (!lockServerList[lockIndex].destMachineIDQueue->IsEmpty()){
 			char *pointerMsg;
 			int *pointerMachineID;
+			int *pointerMailbox;
 
 			//REMOVE MACHINE ID FROM MACHINE ID QUEUE
 			pointerMachineID = (int *)lockServerList[lockIndex].destMachineIDQueue->Remove();
+			pointerMailbox = (int *)lockServerList[lockIndex].destMailboxQueue->Remove();
 
 			strcpy(ack, "1");
 
 			outPktHdr.to = *pointerMachineID; //location
 			//outPktHdr.from = 0;
 			//MAILBOX IS ALWAYS 0                                      
-			outMailHdr.to = *pointerMachineID;
+			outMailHdr.to = *pointerMailbox;
 			outMailHdr.from = serverNum;
 			outMailHdr.length = strlen(ack) + 1;
 
@@ -724,6 +747,7 @@ private:
 
 		cvServerList[cvServerIDAdder].destMachineIDQueue = new List;
 		cvServerList[cvServerIDAdder].msgQueue = new List;
+		cvServerList[cvServerIDAdder].destMailboxQueue = new List;
 		cvServerList[cvServerIDAdder].waitLock = -1;
 		cvServerList[cvServerIDAdder].cvID = atoi(nameOfCondition);
 
@@ -858,10 +882,12 @@ private:
 			char clName[2];
 			char lockName[2];
 			char cvName[2]; //LOCK ID
+			char mailboxName[2];
 			sprintf(clName, "%d", idOfMachine);
 			sprintf(cvName, "%d", conditionID);
 			sprintf(lockName, "%d", lockID);
-			CreateMessage("servWaitCV", cvName, lockName, clName);
+			sprintf(mailboxName, "%d", fromMailbox);
+			CreateMessage("servWaitCV", cvName, lockName, clName, mailboxName);
 			int exists = 0;
 			for (int x = 0; x < numOfServers; x++)
 			{
@@ -936,9 +962,12 @@ private:
 		strcpy(msg, "clientcvmsg");
 		toAddress = new int;
 		*toAddress = idOfMachine;
+		toMailbox = new int;
+		*toMailbox = currentMailboxUsed;
 
 		cvServerList[cvIndex].msgQueue->Append((void *)msg);                // Add the message to the wait queue
 		cvServerList[cvIndex].destMachineIDQueue->Append((void *)toAddress);               // Add the machine id to the wait queue
+		cvServerList[cvIndex].destMailboxQueue->Append((void *)toMailbox);
 		printf("MACHINE ID %d WITH LOCK %d IS PUT TO CV WAIT QUEUE %d \n", idOfMachine, lockID, conditionID);
 
 		return 0;
@@ -1040,11 +1069,12 @@ private:
 		//
 		//ACQUIRE LOCK FOR SIGNALLING 
 		int signalMachineID = *((int *)cvServerList[cvIndex].destMachineIDQueue->Remove());
+		int signalMailbox = *((int *)cvServerList[cvIndex].destMailboxQueue->Remove());
 		//acquireServerLock(signalMachineID, lockID, true);
 		printf("MACHINE ID %d WITH LOCK %d IS COMING OFF CV WAIT QUEUE %d \n", idOfMachine, lockID, conditionID);
 
 		outPktHdr.to = signalMachineID; //location                                    
-		outMailHdr.to = signalMachineID;
+		outMailHdr.to = signalMailbox;
 		outMailHdr.from = serverNum;
 		outMailHdr.length = strlen(ack) + 1;
 		postOffice->Send(outPktHdr, outMailHdr, ack);
@@ -1078,10 +1108,12 @@ private:
 			char clName[2];
 			char lockName[2];
 			char cvName[2]; //LOCK ID
+			char mailboxName[2];
 			sprintf(clName, "%d", idOfMachine);
 			sprintf(cvName, "%d", conditionID);
-				sprintf(lockName, "%d", lockID);
-			CreateMessage("servBroadcastCV", cvName, lockName, clName);
+			sprintf(lockName, "%d", lockID);
+			sprintf(mailboxName, "%d", fromMailbox);
+			CreateMessage("servBroadcastCV", cvName, lockName, clName, mailboxName);
 			int exists = 0;
 			for (int x = 0; x < numOfServers; x++)
 			{
@@ -1300,7 +1332,7 @@ private:
 	int parsingRequest(char* message, int idOfMachine){
 		int statusResult;
 		//char desiredRequest = *message;
-		string clName;
+		string clName, mailboxName;
 		
 		std::stringstream ss;
 		ss << message;
@@ -1409,6 +1441,7 @@ private:
 			string lockName;
 			ss >> clName;
 			ss >> lockName;
+			ss >> mailboxName;
 			printf("Request: servAcquireLock\n");
 
 			int returnVal = acquireServerLock(atoi(lockName.c_str()), atoi(clName.c_str()), false);
@@ -1420,7 +1453,7 @@ private:
 					//Make a message for the other server and send it
 					outPktHdr.to = atoi(clName.c_str()); //location
 					//MAILBOX IS ALWAYS 0                                      
-					outMailHdr.to = atoi(clName.c_str());
+					outMailHdr.to = atoi(mailboxName.c_str());
 					outMailHdr.from = serverNum;
 					outMailHdr.length = strlen(ack) + 1;
 
@@ -1575,6 +1608,7 @@ private:
 			ss >> cvName;
 			ss >> lock_name;
 			ss >> clName;
+			ss >> mailboxName;
 			printf("Request: servWaitCV\n");
 
 			int returnVal = WaitCV(atoi(cvName.c_str()), atoi(lock_name.c_str()), atoi(clName.c_str()), false);
@@ -1586,7 +1620,7 @@ private:
 					//Make a message for the other server and send it
 					outPktHdr.to = atoi(clName.c_str()); //location
 					//MAILBOX IS ALWAYS 0                                      
-					outMailHdr.to = atoi(clName.c_str());
+					outMailHdr.to = atoi(mailboxName.c_str());
 					outMailHdr.from = serverNum;
 					outMailHdr.length = strlen(ack) + 1;
 
@@ -1617,6 +1651,7 @@ private:
 			ss >> cvName;
 			ss >> lock_name;
 			ss >> clName;
+			ss >> mailboxName;
 			printf("Request: servBroadcastCV\n");
 
 			int returnVal = BroadcastCV(atoi(cvName.c_str()), atoi(lock_name.c_str()), atoi(clName.c_str()), false);
@@ -1628,7 +1663,7 @@ private:
 					//Make a message for the other server and send it
 					outPktHdr.to = atoi(clName.c_str()); //location
 					//MAILBOX IS ALWAYS 0                                      
-					outMailHdr.to = atoi(clName.c_str());
+					outMailHdr.to = atoi(mailboxName.c_str());
 					outMailHdr.from = serverNum;
 					outMailHdr.length = strlen(ack) + 1;
 
@@ -1659,6 +1694,7 @@ private:
 			ss >> cvName;
 			ss >> lock_name;
 			ss >> clName;
+			ss >> mailboxName;
 			printf("Request: servSignalCV\n");
 
 			int returnVal = SignalCV(atoi(cvName.c_str()), atoi(lock_name.c_str()), atoi(clName.c_str()), false);
@@ -1670,7 +1706,7 @@ private:
 					//Make a message for the other server and send it
 					outPktHdr.to = atoi(clName.c_str()); //location
 					//MAILBOX IS ALWAYS 0                                      
-					outMailHdr.to = atoi(clName.c_str());
+					outMailHdr.to = atoi(mailboxName.c_str());
 					outMailHdr.from = serverNum;
 					outMailHdr.length = strlen(ack) + 1;
 
@@ -2056,6 +2092,8 @@ void Server::doServer() {
 		pktFrom = inPktHdr.from;
 		mailFrom = inMailHdr.from;
 
+		currentMailboxUsed = inMailHdr.from;
+
 		//CHECK TO SEE WHICH REQUEST TO RESPOND TO AND RESPOND
 		int statusResult = parsingRequest(buffer, inPktHdr.from);
 		
@@ -2064,9 +2102,10 @@ void Server::doServer() {
 			//MESSAGE SENT TO CLIENT
 			//LOCATION TO BE SENT TO
 			outPktHdr.to = pktFrom; //location
+			outPktHdr.from = serverNum;
 			//MAILBOX IS ALWAYS SERVERNUM                                
 			outMailHdr.to = mailFrom;
-			outMailHdr.from = serverNum;
+			outMailHdr.from = 0;
 			outMailHdr.length = strlen(ack) + 1;
 			printf("Sent \"%s\" to outPktHdr.to: %d,outMailHdr.to: %d \n", ack, outPktHdr.to, outMailHdr.to);
 			success = postOffice->Send(outPktHdr, outMailHdr, ack);

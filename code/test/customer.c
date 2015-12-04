@@ -174,7 +174,7 @@ void joinApplicationLine()
 			IntPrint(myLine);
 			Write(" for Application Clerk.\n", 24, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, EnterLine, Regular);
+			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, 0, Regular);
 		}
 
 		Wait(ApplicationLineCVs[myLine], ApplicationLock);
