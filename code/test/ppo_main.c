@@ -72,34 +72,24 @@ int main()
 		CashierBribeCVs[i] = CreateCondition();
 	}
 	
-	/*for(i = 0; i < 2; i++)
-	{
-		if(clientJobs < 2)
-		{
-			newJob = JobRequest();
-
-			if(newJob == 0)
-			{	*/				
-				Write("Exec customer\n", 16, ConsoleOutput);
-				Exec("../test/customer", 40);
-				clientJobs++;
-				Yield();
-			/*}
-			else if(newJob == 1)
-			{*/
-				Write("Exec application Clerk\n", 24, ConsoleOutput);
-				Exec("../test/ApplicationClerk", 40);
-				clientJobs++;
-				Yield();
-				Exec("../test/PictureClerk", 40);
-				Yield();
-				Exec("../test/PassportClerk", 40);
-				Yield();
-				Exec("../test/Cashier", 40);
-			/*	Yield();
-			}
+	/*Exec customers and clerks, number of each predefined above*/
 			
-		}
-	}*/
-	Exit(0);
+		Write("Exec customer\n", 16, ConsoleOutput);
+		Exec("../test/customer", 40);
+	
+	
+		Write("Exec application Clerk\n", 24, ConsoleOutput);
+		Exec("../test/ApplicationClerk", 40);
+	
+		Write("Exec picture Clerk\n", 24, ConsoleOutput);
+		Exec("../test/PictureClerk", 40);
+	
+		Write("Exec passport Clerk\n", 24, ConsoleOutput);
+		Exec("../test/PassportClerk", 40);
+			
+		Write("Exec Cashier\n", 24, ConsoleOutput);
+		Exec("../test/Cashier", 40);
+	
+
+	
 }

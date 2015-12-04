@@ -151,7 +151,7 @@ void joinApplicationLine()
 	int myLine;
 
 	Acquire(ApplicationLock);
-	myLine = 0; /*DONT FORGET TO GET SMALLEST LINE!*/
+	myLine = 0;
 
 	if(DoFunc(GetMV, ClerkState, 2, ApplicationClerk, myLine, BLANK, BLANK) == Ready)
 	{
@@ -163,7 +163,7 @@ void joinApplicationLine()
 			IntPrint(myLine);
 			Write("\n", 1, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, 0, Bribe); /*Make sure to adjust this for 2-digit ssns*/
+			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, ssn, Bribe); /*Make sure to adjust this for 2-digit ssns*/
 			
 		}
 		else
@@ -174,7 +174,7 @@ void joinApplicationLine()
 			IntPrint(myLine);
 			Write(" for Application Clerk.\n", 24, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, 0, Regular);
+			DoFunc(SetMV, LineCount, 4, ApplicationClerk, myLine, ssn, Regular);
 		}
 
 		Wait(ApplicationLineCVs[myLine], ApplicationLock);
@@ -223,7 +223,7 @@ void joinPictureLine()
 			IntPrint(myLine);
 			Write("\n", 1, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, PictureClerk, myLine, 0, Bribe); /*Make sure to adjust this for 2-digit ssns*/
+			DoFunc(SetMV, LineCount, 4, PictureClerk, myLine, ssn, Bribe); /*Make sure to adjust this for 2-digit ssns*/
 			
 		}
 		else
@@ -234,7 +234,7 @@ void joinPictureLine()
 			IntPrint(myLine);
 			Write(" for Picture Clerk.\n", 20, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, PictureClerk, myLine, EnterLine, Regular);
+			DoFunc(SetMV, LineCount, 4, PictureClerk, myLine, ssn, Regular);
 		}
 
 		Wait(PictureLineCVs[myLine], PictureLock);
@@ -307,7 +307,7 @@ joinPassportLine()
 			IntPrint(myLine);
 			Write("\n", 1, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, PassportClerk, myLine, 0, Bribe); /*Make sure to adjust this for 2-digit ssns*/
+			DoFunc(SetMV, LineCount, 4, PassportClerk, myLine, ssn, Bribe); /*Make sure to adjust this for 2-digit ssns*/
 			
 		}
 		else
@@ -318,7 +318,7 @@ joinPassportLine()
 			IntPrint(myLine);
 			Write(" for Passport Clerk.\n", 21, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, PassportClerk, myLine, EnterLine, Regular);
+			DoFunc(SetMV, LineCount, 4, PassportClerk, myLine, ssn, Regular);
 		}
 
 		Wait(PassportLineCVs[myLine], PassportLock);
@@ -398,7 +398,7 @@ void joinCashierLine()
 			IntPrint(myLine);
 			Write(" for Cashier\n", 13, ConsoleOutput);
 
-			DoFunc(SetMV, LineCount, 4, Cashier, myLine, EnterLine, Regular);
+			DoFunc(SetMV, LineCount, 4, Cashier, myLine, 4, Regular);
 		}
 
 		Wait(CashierLineCVs[myLine], CashierLock);
@@ -448,14 +448,43 @@ void joinCashierLine()
 
 int main()
 {
-	Write("ID\n", 5, ConsoleOutput);
+	int randomLine;
 	
 	Init();
 	
-	joinApplicationLine();
-	joinPictureLine();
-	joinPassportLine();
-	joinCashierLine();
+	while(done == false);
+	{
+		randomLine = Rand(4);
+				
+		switch(randomLine)
+		{
+			case 0:
+				if(applicationAccepted == false)
+				{
+					joinApplicationLine();
+				}
+			break;
+			case 1:
+				if(pictureTaken == false)
+				{
+					joinPictureLine(ssn);
+				}
+			break;
+			case 2:
+				if(certified == false)
+				{
+					joinPassportLine(ssn);
+				}
+			break;
+			case 3:
+				if (done == false)
+				{
+					joinCashierLine(ssn); 
+				}
+			break;
+		}
+
+	}
 
 	Exit(0);
 }

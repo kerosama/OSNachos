@@ -42,6 +42,19 @@
 #define totalPassportClerkJobs 1
 #define totalCashierJobs 1
 
+struct SSN
+	{
+		int val;
+		SSN* prev;
+	};
+
+	struct SSNQ
+	{
+		SSN* front;
+		SSN* back;
+		int length;
+	};
+
 class Server{
 	PacketHeader outPktHdr, inPktHdr;
 	MailHeader outMailHdr, inMailHdr;
@@ -138,9 +151,19 @@ class Server{
 		List* cashierBribers;
 
 		char* nameOfMV;
+
+		SSNQ AppQ;	
+		SSNQ AppQB;
+		SSNQ PicQ;
+		SSNQ PicQB;
+		SSNQ PPQ;
+		SSNQ PPQB;
+		SSNQ CashQ;
+		SSNQ CashQB;
 	};
 	int mvServerIDAdder;
 	ServerMV mvServerList[MV_MAX_COUNT];
+	
 
 public:
 	Server::Server(int serverNumber, int numOfServers);
@@ -415,6 +438,7 @@ private:
 			lockServerList[lockServerIDAdder].destMailboxQueue->Append((void *)toMailbox);
 
 			printf("MACHINE ID %d IS PUT TO WAIT QUEUE SINCE LOCK IS UNAVAIALBLE\n", idOfMachine);
+
 
 			return 0;
 		}
@@ -1271,6 +1295,10 @@ private:
 			//mvServerList[mvServerIDAdder].applicationCustomers[i] = new List;
 			//mvServerList[mvServerIDAdder].applicationBribers[i] = new List;
 		}
+				
+		//mvServerList[mvServerIDAdder].ssnq.front = NULL;
+		//mvServerList[mvServerIDAdder].ssnq.back = NULL;
+		//mvServerList[mvServerIDAdder].ssnq.length = 0;
 
 		printf("MACHINE ID %d CREATED MV %d\n", idOfMachine, mvServerIDAdder);
 		sprintf(ack, "%d", mvServerIDAdder);
@@ -1802,35 +1830,187 @@ private:
 				switch(type)
 				{
 					case 0:
-						newSSN = new int;
-						*newSSN = ssn;
-						printf("ssn: %d\n", ssn);
-						printf("newSSN: %d\n", *newSSN);
 						if(bribe == 0)
 						{							
 							mvServerList[mvServerIDAdder].applicationClerkLineCounts[line] += 1;
-							//mvServerList[mvServerIDAdder].applicationCustomers->Append((void*)newSSN);
+							if(mvServerList[mvServerIDAdder].AppQ.length == 0)
+							{
+								mvServerList[mvServerIDAdder].AppQ.front = new SSN;
+								mvServerList[mvServerIDAdder].AppQ.front->val = ssn;
+								mvServerList[mvServerIDAdder].AppQ.front->prev = NULL;
+								mvServerList[mvServerIDAdder].AppQ.back = mvServerList[mvServerIDAdder].AppQ.front;
+								mvServerList[mvServerIDAdder].AppQ.back->prev = NULL;
+								mvServerList[mvServerIDAdder].AppQ.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].AppQ.back;
+								mvServerList[mvServerIDAdder].AppQ.back = newBack;
+								mvServerList[mvServerIDAdder].AppQ.back->val = ssn;
+								mvServerList[mvServerIDAdder].AppQ.length++;
+							}
+							printf("AppQ length: %d", mvServerList[mvServerIDAdder].AppQ.length);
 						}
 						else
 						{
 							mvServerList[mvServerIDAdder].applicationClerkBribeCounts[line] += 1;
-							//mvServerList[mvServerIDAdder].applicationBribers->Append((void*)newSSN);
+							if(mvServerList[mvServerIDAdder].AppQB.length == 0)
+							{
+								mvServerList[mvServerIDAdder].AppQB.front = new SSN;
+								mvServerList[mvServerIDAdder].AppQB.front->val = ssn;
+								mvServerList[mvServerIDAdder].AppQB.front->prev = NULL;
+								mvServerList[mvServerIDAdder].AppQB.back = mvServerList[mvServerIDAdder].AppQB.front;
+								mvServerList[mvServerIDAdder].AppQB.back->prev = NULL;
+								mvServerList[mvServerIDAdder].AppQB.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].AppQ.back;
+								mvServerList[mvServerIDAdder].AppQB.back = newBack;
+								mvServerList[mvServerIDAdder].AppQB.back->val = ssn;
+								mvServerList[mvServerIDAdder].AppQB.length++;
+							}
+							printf("AppQB length: %d", mvServerList[mvServerIDAdder].AppQB.length);
 						}
 					break;
 					case 1:
-						newSSN = new int;
-						*newSSN = ssn;
-						printf("ssn: %d\n", ssn);
-						printf("newSSN: %d\n", *newSSN);
 						if(bribe == 0)
 						{							
 							mvServerList[mvServerIDAdder].pictureClerkLineCounts[line] += 1;
-							//mvServerList[mvServerIDAdder].pictureCustomers->Append((void*)newSSN);
+							if(mvServerList[mvServerIDAdder].PicQ.length == 0)
+							{
+								mvServerList[mvServerIDAdder].PicQ.front = new SSN;
+								mvServerList[mvServerIDAdder].PicQ.front->val = ssn;
+								mvServerList[mvServerIDAdder].PicQ.front->prev = NULL;
+								mvServerList[mvServerIDAdder].PicQ.back = mvServerList[mvServerIDAdder].PicQ.front;
+								mvServerList[mvServerIDAdder].PicQ.back->prev = NULL;
+								mvServerList[mvServerIDAdder].PicQ.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].PicQ.back;
+								mvServerList[mvServerIDAdder].PicQ.back = newBack;
+								mvServerList[mvServerIDAdder].PicQ.back->val = ssn;
+								mvServerList[mvServerIDAdder].PicQ.length++;
+							}
+							printf("PicQ length: %d", mvServerList[mvServerIDAdder].PicQ.length);
 						}
 						else
 						{
 							mvServerList[mvServerIDAdder].pictureClerkBribeCounts[line] += 1;
-							//mvServerList[mvServerIDAdder].pictureBribers->Append((void*)newSSN);
+							if(mvServerList[mvServerIDAdder].PicQB.length == 0)
+							{
+								mvServerList[mvServerIDAdder].PicQB.front = new SSN;
+								mvServerList[mvServerIDAdder].PicQB.front->val = ssn;
+								mvServerList[mvServerIDAdder].PicQB.front->prev = NULL;
+								mvServerList[mvServerIDAdder].PicQB.back = mvServerList[mvServerIDAdder].PicQB.front;
+								mvServerList[mvServerIDAdder].PicQB.back->prev = NULL;
+								mvServerList[mvServerIDAdder].PicQB.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].PicQB.back;
+								mvServerList[mvServerIDAdder].PicQB.back = newBack;
+								mvServerList[mvServerIDAdder].PicQB.back->val = ssn;
+								mvServerList[mvServerIDAdder].PicQB.length++;
+							}
+							printf("PicQB length: %d", mvServerList[mvServerIDAdder].PicQB.length);
+						}
+					break;
+					case 2:
+						if(bribe == 0)
+						{							
+							mvServerList[mvServerIDAdder].passportClerkLineCounts[line] += 1;
+							if(mvServerList[mvServerIDAdder].PPQ.length == 0)
+							{
+								mvServerList[mvServerIDAdder].PPQ.front = new SSN;
+								mvServerList[mvServerIDAdder].PPQ.front->val = ssn;
+								mvServerList[mvServerIDAdder].PPQ.front->prev = NULL;
+								mvServerList[mvServerIDAdder].PPQ.back = mvServerList[mvServerIDAdder].PPQ.front;
+								mvServerList[mvServerIDAdder].PPQ.back->prev = NULL;
+								mvServerList[mvServerIDAdder].PPQ.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].PPQ.back;
+								mvServerList[mvServerIDAdder].PPQ.back = newBack;
+								mvServerList[mvServerIDAdder].PPQ.back->val = ssn;
+								mvServerList[mvServerIDAdder].PPQ.length++;
+							}
+							printf("PPQ length: %d", mvServerList[mvServerIDAdder].PPQ.length);
+						}
+						else
+						{
+							mvServerList[mvServerIDAdder].passportClerkBribeCounts[line] += 1;
+							if(mvServerList[mvServerIDAdder].PPQB.length == 0)
+							{
+								mvServerList[mvServerIDAdder].PPQB.front = new SSN;
+								mvServerList[mvServerIDAdder].PPQB.front->val = ssn;
+								mvServerList[mvServerIDAdder].PPQB.front->prev = NULL;
+								mvServerList[mvServerIDAdder].PPQB.back = mvServerList[mvServerIDAdder].PPQB.front;
+								mvServerList[mvServerIDAdder].PPQB.back->prev = NULL;
+								mvServerList[mvServerIDAdder].PPQB.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].PPQB.back;
+								mvServerList[mvServerIDAdder].PPQB.back = newBack;
+								mvServerList[mvServerIDAdder].PPQB.back->val = ssn;
+								mvServerList[mvServerIDAdder].PPQB.length++;
+							}
+							printf("PPQB length: %d", mvServerList[mvServerIDAdder].PPQB.length);
+						}
+					break;
+					case 3:
+						if(bribe == 0)
+						{							
+							mvServerList[mvServerIDAdder].cashierLineCounts[line] += 1;
+							if(mvServerList[mvServerIDAdder].CashQ.length == 0)
+							{
+								mvServerList[mvServerIDAdder].CashQ.front = new SSN;
+								mvServerList[mvServerIDAdder].CashQ.front->val = ssn;
+								mvServerList[mvServerIDAdder].CashQ.front->prev = NULL;
+								mvServerList[mvServerIDAdder].CashQ.back = mvServerList[mvServerIDAdder].CashQ.front;
+								mvServerList[mvServerIDAdder].CashQ.back->prev = NULL;
+								mvServerList[mvServerIDAdder].CashQ.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].CashQ.back;
+								mvServerList[mvServerIDAdder].CashQ.back = newBack;
+								mvServerList[mvServerIDAdder].CashQ.back->val = ssn;
+								mvServerList[mvServerIDAdder].CashQ.length++;
+							}
+							printf("CashQ length: %d", mvServerList[mvServerIDAdder].CashQ.length);
+						}
+						else
+						{
+							mvServerList[mvServerIDAdder].cashierBribeCounts[line] += 1;
+							if(mvServerList[mvServerIDAdder].CashQB.length == 0)
+							{
+								mvServerList[mvServerIDAdder].CashQB.front = new SSN;
+								mvServerList[mvServerIDAdder].CashQB.front->val = ssn;
+								mvServerList[mvServerIDAdder].CashQB.front->prev = NULL;
+								mvServerList[mvServerIDAdder].CashQB.back = mvServerList[mvServerIDAdder].CashQB.front;
+								mvServerList[mvServerIDAdder].CashQB.back->prev = NULL;
+								mvServerList[mvServerIDAdder].CashQB.length = 1;
+							}
+							else
+							{
+								SSN* newBack = new SSN;
+								newBack->prev = mvServerList[mvServerIDAdder].CashQB.back;
+								mvServerList[mvServerIDAdder].CashQB.back = newBack;
+								mvServerList[mvServerIDAdder].CashQB.back->val = ssn;
+								mvServerList[mvServerIDAdder].CashQB.length++;
+							}
+							printf("CashQB length: %d", mvServerList[mvServerIDAdder].CashQB.length);
 						}
 					break;
 				}
@@ -1906,6 +2086,26 @@ private:
 							returnVal = mvServerList[mvServerIDAdder].pictureClerkBribeCounts[line];
 						}
 					break;
+					case 2:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].passportClerkLineCounts[line];
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].passportClerkBribeCounts[line];
+						}
+					break;
+					case 3:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].cashierLineCounts[line];
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].cashierBribeCounts[line];
+						}
+					break;
 				}
 			}
 			else if(!strcmp(name.c_str(), "FrontOfLine"))
@@ -1920,17 +2120,81 @@ private:
 					case 0:
 						if(bribe == 0)
 						{
-							/*if(!mvServerList[mvServerIDAdder].applicationCustomers[line]->IsEmpty())
-							{
-								returnVal = *((int*)mvServerList[mvServerIDAdder].applicationCustomers[line]->Remove());
-							}*/
+							returnVal = mvServerList[mvServerIDAdder].AppQ.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].AppQ.front;
+							mvServerList[mvServerIDAdder].AppQ.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].AppQ.length--;
+							printf("AppQ length: %d", mvServerList[mvServerIDAdder].AppQ.length);
 						}
 						else
 						{
-							/*if(!mvServerList[mvServerIDAdder].applicationBribers[line]->IsEmpty())
-							{
-								returnVal = *((int*)mvServerList[mvServerIDAdder].applicationBribers[line]->Remove());
-							}*/
+							returnVal = mvServerList[mvServerIDAdder].AppQB.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].AppQB.front;
+							mvServerList[mvServerIDAdder].AppQB.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].AppQB.length--;
+							printf("AppQB length: %d", mvServerList[mvServerIDAdder].AppQB.length);
+						}
+					break;
+					case 1:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].PicQ.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].PicQ.front;
+							mvServerList[mvServerIDAdder].PicQ.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].PicQ.length--;
+							printf("PicQ length: %d", mvServerList[mvServerIDAdder].PicQ.length);
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].PicQB.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].PicQB.front;
+							mvServerList[mvServerIDAdder].PicQB.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].PicQB.length--;
+							printf("PicQB length: %d", mvServerList[mvServerIDAdder].PicQB.length);
+						}
+					break;
+					case 2:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].PPQ.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].PPQ.front;
+							mvServerList[mvServerIDAdder].PPQ.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].PPQ.length--;
+							printf("PicQ length: %d", mvServerList[mvServerIDAdder].PPQ.length);
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].PPQB.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].PPQB.front;
+							mvServerList[mvServerIDAdder].PPQB.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].PPQB.length--;
+							printf("PPQB length: %d", mvServerList[mvServerIDAdder].PPQB.length);
+						}
+					break;
+					case 3:
+						if(bribe == 0)
+						{
+							returnVal = mvServerList[mvServerIDAdder].CashQ.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].CashQ.front;
+							mvServerList[mvServerIDAdder].CashQ.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].CashQ.length--;
+							printf("PicQ length: %d", mvServerList[mvServerIDAdder].CashQ.length);
+						}
+						else
+						{
+							returnVal = mvServerList[mvServerIDAdder].CashQB.front->val;
+							SSN* temp = mvServerList[mvServerIDAdder].CashQB.front;
+							mvServerList[mvServerIDAdder].CashQB.front = temp->prev;							
+							delete temp;
+							mvServerList[mvServerIDAdder].CashQB.length--;
+							printf("CashQB length: %d", mvServerList[mvServerIDAdder].CashQB.length);
 						}
 					break;
 				}
