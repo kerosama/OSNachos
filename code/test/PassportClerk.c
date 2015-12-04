@@ -89,11 +89,12 @@ void Init()
 void Run()
 {
 	int frontSSN;
+	int lineType;
 	while(true)
 	{
 		Acquire(PassportLock);
 
-		/*bribeLineCount = DoFunc(GetMV, LineCount, 3, PassportClerk, line, Bribe, BLANK);*/
+		bribeLineCount = DoFunc(GetMV, LineCount, 3, PassportClerk, line, Bribe, BLANK);
 		lineCount = DoFunc(GetMV, LineCount, 3, PassportClerk, line, Regular, BLANK);
 		if(bribeLineCount > 0)
 		{
@@ -101,7 +102,7 @@ void Run()
 			IntPrint(line);
 			Write(" has received $500 from Customer\n ", 33, ConsoleOutput);
 
-			DoFunc(GetMV, FrontOfLine, 3, PassportClerk, line, Bribe, BLANK);
+			lineType = Bribe;
 
 			Signal(PassportBribeCVs[line], PassportLock);
 			DoFunc(SetMV, ClerkState, 3, PassportClerk, line, Busy, BLANK);
@@ -112,7 +113,7 @@ void Run()
 			IntPrint(line);
 			Write(" has signalled a Customer to come to the counter\n", 49, ConsoleOutput);
 
-			frontSSN = DoFunc(GetMV, FrontOfLine, 3, PassportClerk, line, Regular, BLANK);
+			lineType = Regular;
 
 			Signal(PassportLineCVs[line], PassportLock);
 			DoFunc(SetMV, ClerkState, 3, PassportClerk, line, Busy, BLANK);
@@ -127,10 +128,19 @@ void Run()
 
 		Wait(PassportLineCVs[line], PassportLineLocks[line]);
 				
+		if(lineType == Bribe)
+		{
+			frontSSN = DoFunc(GetMV, FrontOfLine, 3, PassportClerk, line, Bribe, BLANK);
+		}
+		else
+		{
+			frontSSN = DoFunc(GetMV, FrontOfLine, 3, PassportClerk, line, Regular, BLANK);
+		}
+
 		Write("Customer ", 9, ConsoleOutput);
-		/*Get THE SSN SOMEHOW*/
+		IntPrint(frontSSN);
 		Write(" has given SSN ", 15, ConsoleOutput);
-		/*Get THE SSN SOMEHOW*/
+		IntPrint(frontSSN);
 		Write(" to Applicatoin Clerk ", 22, ConsoleOutput); 
 		IntPrint(line);
 		Write("\n", 1, ConsoleOutput);

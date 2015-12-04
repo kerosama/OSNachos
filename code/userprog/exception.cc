@@ -661,6 +661,8 @@ int CreateCondition_Syscall() {
 	if (atoi(temp.c_str()) < 0)
 		printf("Server out of CVs.\n");
 
+	current_cond_num++;
+
 	return atoi(temp.c_str());
 
 	int requestStatus = atoi (serverResponse);
@@ -668,6 +670,8 @@ int CreateCondition_Syscall() {
 	printf("\n FAILURE TO CREATE LOCK\n");
 	return -1;
 	}
+
+	
 #else
 	Condition *tempCond = new Condition("temp");
 	cond_arr[current_cond_num++] = tempCond;
@@ -970,11 +974,14 @@ void SetMonitorVal_Syscall(int id, int val)
 void SetMonitorVal_Syscall2(int type, int num, char* vars)
 {
 	printf("Syscall in Exception.cc - Setting Monitor Value2\n");
-	printf("vars: %s\n", vars);
-	char name[40];
+	char name[100];
 
+	printf("vars: %s\n", vars);
 	const char* req;
 	
+	
+	printf("Req: %s\n", type);
+
 	switch(type)
 	{
 		case 0:
@@ -987,6 +994,7 @@ void SetMonitorVal_Syscall2(int type, int num, char* vars)
 			req = "FrontOfLine";
 		break;
 	}
+
 
 	sprintf(name, "%s %d %s", req, num, vars);
 	CreateMessage("SetMonitorVal2", name);
@@ -1497,14 +1505,12 @@ void ExceptionHandler(ExceptionType which) {
 				DEBUG('a', "SetMonitorVal syscall.\n");
 				data = new char[machine->ReadRegister(5)*2 - 1];
 				copyin(machine->ReadRegister(6), machine->ReadRegister(5)*2 - 1, data);
-				printf("data: %s\n", data);
 				rv = GetMonitorVal_Syscall2(machine->ReadRegister(4), machine->ReadRegister(5), data);
 			break;
 			case SC_SetMonitorVal:
 				DEBUG('a', "SetMonitorVal syscall.\n");
 				data = new char[machine->ReadRegister(5)*2 - 1];
 				copyin(machine->ReadRegister(6), machine->ReadRegister(5)*2 - 1, data);
-				printf("data: %s\n", data);
 				SetMonitorVal_Syscall2(machine->ReadRegister(4), machine->ReadRegister(5), data);
 			break;
 			case SC_JobRequest:

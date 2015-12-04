@@ -89,6 +89,8 @@ void Init()
 void Run()
 {
 	int frontSSN;
+	int lineType;
+
 	while(true)
 	{
 		Acquire(ApplicationLock);
@@ -101,7 +103,7 @@ void Run()
 			IntPrint(line);
 			Write(" has received $500 from Customer\n ", 33, ConsoleOutput);
 
-			DoFunc(GetMV, FrontOfLine, 3, ApplicationClerk, line, Bribe, BLANK);
+			lineType = Bribe;
 
 			Signal(ApplicationBribeCVs[line], ApplicationLock);
 			DoFunc(SetMV, ClerkState, 3, ApplicationClerk, line, Busy, BLANK);
@@ -112,7 +114,7 @@ void Run()
 			IntPrint(line);
 			Write(" has signalled a Customer to come to the counter\n", 49, ConsoleOutput);
 
-			frontSSN = DoFunc(GetMV, FrontOfLine, 3, ApplicationClerk, line, Regular, BLANK);
+			lineType = Regular;
 
 			Signal(ApplicationLineCVs[line], ApplicationLock);
 			DoFunc(SetMV, ClerkState, 3, ApplicationClerk, line, Busy, BLANK);
@@ -126,11 +128,20 @@ void Run()
 		Release(ApplicationLock);
 
 		Wait(ApplicationLineCVs[line], ApplicationLineLocks[line]);
-				
+			
+		if(lineType == Bribe)
+		{
+			frontSSN = DoFunc(GetMV, FrontOfLine, 3, ApplicationClerk, line, Bribe, BLANK);
+		}
+		else
+		{
+			frontSSN = DoFunc(GetMV, FrontOfLine, 3, ApplicationClerk, line, Regular, BLANK);
+		}
+
 		Write("Customer ", 9, ConsoleOutput);
-		/*Get THE SSN SOMEHOW*/
+		IntPrint(frontSSN);
 		Write(" has given SSN ", 15, ConsoleOutput);
-		/*Get THE SSN SOMEHOW*/
+		IntPrint(frontSSN);
 		Write(" to Applicatoin Clerk ", 22, ConsoleOutput); 
 		IntPrint(line);
 		Write("\n", 1, ConsoleOutput);
